@@ -28,7 +28,11 @@ Restart `npm run dev` after changing `.env.local`.
    write, and shows an error with these same hints.
 3. **`reviews.status`.** NovaAI writes `pending` (waiting for approval) and
    `published`. If your column has a check constraint or enum, allow both.
-4. **Email confirmation.** Authentication > Sign In / Providers > Email.
+4. **Free-reply limit.** Run [`supabase/credits.sql`](supabase/credits.sql)
+   once. It creates `profiles` (10 free AI replies per user), the sign-up
+   trigger and the `increment_credits_used()` function. Until it is run,
+   `/api/generate-reply` refuses to generate.
+5. **Email confirmation.** Authentication > Sign In / Providers > Email.
    With "Confirm email" on, new users must click the link in their inbox
    before they can log in. Turn it off for sign-up to open the dashboard
    straight away.
@@ -61,4 +65,6 @@ Restart `npm run dev` after changing `.env.local`.
 - Google Business Profile connection. Nothing is read from or posted to
   Google; "Published" means approved inside NovaAI.
 - Sending alert emails. The address is stored only.
-- Payments. The Billing page shows the free plan.
+- Payments. The Billing page shows the free plan; when the 10 free replies
+  are used there is no way to buy more yet. Raise `profiles.credits_limit`
+  by hand in the SQL editor.

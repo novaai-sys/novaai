@@ -11,7 +11,8 @@ const field =
  * and reply are saved in Supabase by /api/generate-reply.
  */
 export default function TestReviewForm({ onDone }: { onDone: () => void }) {
-  const { addTestReview, settings } = useDashboard();
+  const { addTestReview, settings, credits } = useDashboard();
+  const outOfCredits = credits !== null && credits.remaining === 0;
   const [name, setName] = useState("Test customer");
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
@@ -45,6 +46,13 @@ export default function TestReviewForm({ onDone }: { onDone: () => void }) {
       <p className="mt-1 max-w-[62ch] text-[14px] text-mist">
         Nova writes a real reply in your “{settings.tone_of_voice}” tone and
         saves both. Nothing is posted to Google.
+        {credits && (
+          <>
+            {" "}
+            This uses 1 of your {credits.remaining} remaining free{" "}
+            {credits.remaining === 1 ? "reply" : "replies"}.
+          </>
+        )}
       </p>
 
       <div className="mt-6 grid gap-5 md:grid-cols-[1fr_auto]">
@@ -117,8 +125,8 @@ export default function TestReviewForm({ onDone }: { onDone: () => void }) {
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={busy}
-          className="rounded-full bg-fog px-6 py-3 text-[15px] font-medium text-ink transition-colors hover:bg-white disabled:opacity-50"
+          disabled={busy || outOfCredits}
+          className="rounded-full bg-fog px-6 py-3 text-[15px] font-medium text-ink transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? "Nova is writing…" : "Generate reply"}
         </button>

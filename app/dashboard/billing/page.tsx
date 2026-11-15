@@ -4,13 +4,13 @@ import PageShell from "@/components/dashboard/PageShell";
 import { isPublished, useDashboard } from "@/components/dashboard/Store";
 
 export default function BillingPage() {
-  const { reviews } = useDashboard();
+  const { reviews, credits } = useDashboard();
   const published = reviews.filter(isPublished).length;
 
   return (
     <PageShell
       title="Billing"
-      summary="You are on the Free plan. There is nothing to pay and no card on file."
+      summary="You are on the Free plan, which includes 10 AI replies. There is nothing to pay and no card on file."
     >
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         <section className="rounded-card border border-ice/25 bg-panel/70 p-7 md:p-9">
@@ -27,8 +27,8 @@ export default function BillingPage() {
             <span className="text-[15px] text-mist">per month</span>
           </p>
           <p className="mt-6 max-w-[48ch] text-[15px] leading-relaxed text-mist">
-            NovaAI has no payments yet. Paid plans for more
-            locations will come later, and you will choose whether to upgrade.
+            Paid plans with more AI replies are not available yet. When they
+            launch, you will be able to upgrade on this page.
           </p>
         </section>
 
@@ -43,6 +43,14 @@ export default function BillingPage() {
               <dt className="text-mist">Replies published</dt>
               <dd className="tabular-nums">{published}</dd>
             </div>
+            {credits && (
+              <div className="flex justify-between py-3.5">
+                <dt className="text-mist">Free AI replies used</dt>
+                <dd className="tabular-nums">
+                  {credits.used} of {credits.limit}
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between py-3.5">
               <dt className="text-mist">Card on file</dt>
               <dd>None</dd>

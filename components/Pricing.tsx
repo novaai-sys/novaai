@@ -2,6 +2,7 @@ import Link from "next/link";
 import Reveal from "./Reveal";
 
 const included = [
+  "10 AI replies to try it",
   "1 Google Business Profile location",
   "Replies in the language the customer wrote in",
   "Auto-publish for 4 and 5 star reviews",

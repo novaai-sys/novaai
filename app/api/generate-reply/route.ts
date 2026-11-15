@@ -19,8 +19,23 @@ type Body = {
   reviewId?: unknown;
 };
 
-const fail = (status: number, error: string) =>
-  NextResponse.json({ error }, { status });
+type Credits = { used: number; limit: number; remaining: number };
+
+const credits = (used: number, limit: number): Credits => ({
+  used,
+  limit,
+  remaining: Math.max(limit - used, 0),
+});
+
+const fail = (status: number, error: string, extra?: Record<string, unknown>) =>
+  NextResponse.json({ error, ...extra }, { status });
+
+const noCredits = (c: Credits) =>
+  fail(
+    402,
+    `You have used all ${c.limit} free replies. Upgrade to generate more.`,
+    { code: "no_credits", credits: c },
+  );
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
@@ -29,7 +44,16 @@ const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
  *
  * Body: { reviewText, rating, toneOfVoice?, businessName?, reviewerName?, reviewId? }
  * Writes a reply with OpenAI and saves it in the `reviews` table: a new row,
- * or the row named by `reviewId`. Returns { review }.
+ * or the row named by `reviewId`. Returns { review, credits }.
+ *
+ * Order of checks, cheapest first, so OpenAI is only called when it should be:
+ *   1. the request is valid
+ *   2. the user is signed in                          -> 401
+ *   3. the user has free replies left (`profiles`)    -> 402, code "no_credits"
+ *   4. OpenAI writes the reply
+ *   5. `increment_credits_used()` counts it           -> 402 if the limit was
+ *      reached in the meantime (two requests at once)
+ *   6. the review is saved
  *
  * Status rule: with Autopilot on, 4 and 5 star reviews are saved as
  * "published"; everything else is "pending" until the owner approves it.
@@ -45,6 +69,7 @@ export async function POST(request: Request) {
     );
   }
 
+  // 1. Validate the request.
   let body: Body;
   try {
     body = await request.json();
@@ -62,10 +87,30 @@ export async function POST(request: Request) {
     return fail(400, "rating must be a whole number from 1 to 5.");
   }
 
+  // 2. The user must be signed in.
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const user = auth.user;
   if (!user) return fail(401, "Log in to generate a reply.");
+
+  // 3. The user must have free replies left. If the profile cannot be read,
+  //    stop here rather than spend OpenAI credit that cannot be counted.
+  const { data: profileRows, error: profileError } = await supabase
+    .from("profiles")
+    .select("credits_used, credits_limit")
+    .eq("id", user.id)
+    .limit(1);
+  const profile = profileRows?.[0];
+
+  if (profileError || !profile) {
+    return fail(
+      500,
+      "Your usage record could not be read. Run supabase/credits.sql in the Supabase SQL editor, then try again.",
+    );
+  }
+
+  const before = credits(profile.credits_used, profile.credits_limit);
+  if (before.remaining <= 0) return noCredits(before);
 
   // Saved settings fill in whatever the request leaves out, and decide
   // whether Autopilot may publish.
@@ -81,6 +126,7 @@ export async function POST(request: Request) {
   const tone = text(body.toneOfVoice) || settings?.tone_of_voice || "Warm";
   const reviewerName = text(body.reviewerName) || "A customer";
 
+  // 4. Ask OpenAI. A failed call costs the user nothing.
   let reply: string;
   try {
     reply = await writeReply({
@@ -95,6 +141,22 @@ export async function POST(request: Request) {
     return fail(502, e instanceof Error ? e.message : "OpenAI request failed.");
   }
 
+  // 5. Count the reply. The database adds 1 only while the user is under the
+  //    limit, so this is also the final guard against two requests at once.
+  const { data: counted, error: countError } = await supabase.rpc(
+    "increment_credits_used",
+  );
+  if (countError) {
+    return fail(
+      500,
+      "The reply could not be counted, so it was not saved. Run supabase/credits.sql in the Supabase SQL editor, then try again.",
+    );
+  }
+  const row = Array.isArray(counted) ? counted[0] : counted;
+  if (!row) return noCredits(credits(before.limit, before.limit));
+  const after = credits(row.credits_used, row.credits_limit);
+
+  // 6. Save the review and its reply.
   const status =
     settings?.autopilot_enabled && rating >= 4 ? "published" : "pending";
 
@@ -116,10 +178,16 @@ export async function POST(request: Request) {
       });
 
   const { data: saved, error } = await query.select().limit(1);
-  if (error) return fail(500, `Could not save the review: ${error.message}`);
-  if (!saved?.[0]) return fail(404, "That review was not found.");
+  if (error) {
+    return fail(500, `Could not save the review: ${error.message}`, {
+      credits: after,
+    });
+  }
+  if (!saved?.[0]) {
+    return fail(404, "That review was not found.", { credits: after });
+  }
 
-  return NextResponse.json({ review: saved[0] });
+  return NextResponse.json({ review: saved[0], credits: after });
 }
 
 async function writeReply(input: {

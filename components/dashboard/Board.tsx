@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Stars from "../Stars";
 import Switch from "./Switch";
 import TestReviewForm from "./TestReviewForm";
+import CreditsBadge, { UpgradeNotice } from "./CreditsBadge";
 import { ruleRows } from "./rules";
 import { isPublished, useDashboard } from "./Store";
 import type { Review } from "@/lib/types";
@@ -27,7 +28,8 @@ const dateFormat = new Intl.DateTimeFormat("en", {
 const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;
 
 export default function Board() {
-  const { reviews, settings, updateSettings, publish } = useDashboard();
+  const { reviews, settings, credits, updateSettings, publish } = useDashboard();
+  const outOfCredits = credits !== null && credits.remaining === 0;
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -81,18 +83,29 @@ export default function Board() {
           </h1>
           <p className="mt-3 text-[15px] text-mist">{summary}</p>
         </div>
-        {!adding && (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="rounded-full bg-fog px-5 py-2.5 text-[14px] font-medium text-ink transition-colors hover:bg-white"
-          >
-            Add test review
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <CreditsBadge />
+          {!adding && (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              disabled={outOfCredits}
+              aria-describedby={outOfCredits ? "upgrade-notice" : undefined}
+              className="rounded-full bg-fog px-5 py-2.5 text-[14px] font-medium text-ink transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-fog"
+            >
+              Add test review
+            </button>
+          )}
+        </div>
       </header>
 
-      {adding && <TestReviewForm onDone={() => setAdding(false)} />}
+      <div id="upgrade-notice">
+        <UpgradeNotice />
+      </div>
+
+      {adding && !outOfCredits && (
+        <TestReviewForm onDone={() => setAdding(false)} />
+      )}
 
       {/* Headline figures: one strip, divided by hairlines. */}
       <dl
