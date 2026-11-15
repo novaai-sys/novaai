@@ -8,7 +8,7 @@ export default function Footer() {
         <Logo className="text-fog" />
         <nav aria-label="Legal" className="flex gap-6">
           <Link href="/privacy" className="hover:text-fog">
-            Privacy
+            Privacy Policy
           </Link>
           <Link href="/terms" className="hover:text-fog">
             Terms

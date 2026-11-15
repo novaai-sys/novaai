@@ -2,10 +2,10 @@ import Link from "next/link";
 import Logo from "./Logo";
 
 const links = [
-  { href: "#rules", label: "Autopilot rules" },
-  { href: "#languages", label: "Languages" },
-  { href: "#how", label: "How it works" },
-  { href: "#pricing", label: "Pricing" },
+  { href: "/#rules", label: "Autopilot rules" },
+  { href: "/#languages", label: "Languages" },
+  { href: "/#how", label: "How it works" },
+  { href: "/#pricing", label: "Pricing" },
 ];
 
 export default function Nav() {
