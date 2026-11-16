@@ -75,7 +75,7 @@ export default function AuthCard({ mode }: { mode: "signup" | "login" }) {
         </h1>
         <p className="mt-2 text-[15px] text-mist">
           {signup
-            ? "$0 to start. No credit card required."
+            ? "$0 to start (Early Access Beta). No credit card required."
             : "Welcome back. Your reviews are waiting."}
         </p>
 

@@ -41,7 +41,9 @@ export default function Pricing() {
                 <span className="text-[clamp(4.5rem,10vw,7.5rem)] font-medium leading-none tracking-[-0.05em]">
                   $0
                 </span>
-                <span className="text-[15px] text-mist">per month</span>
+                <span className="text-[15px] text-mist">
+                  per month, free during the Early Access Beta
+                </span>
               </p>
               <ul className="mt-8 space-y-3 border-t border-white/10 pt-6 text-[15px]">
                 {included.map((item) => (

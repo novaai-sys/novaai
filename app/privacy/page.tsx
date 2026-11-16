@@ -9,8 +9,8 @@ export const metadata: Metadata = {
     "What data NovaAI accesses from your Google account and Google Business Profile, how it is used, and how to have it deleted.",
 };
 
-const CONTACT_EMAIL = "getnovaaai@gmail.com";
-const LAST_UPDATED = "November 15, 2026";
+const CONTACT_EMAIL = "support@getnovaai.app";
+const LAST_UPDATED = "November 16, 2026";
 const GOOGLE_POLICY_URL =
   "https://developers.google.com/terms/api-services-user-data-policy";
 

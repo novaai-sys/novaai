@@ -51,7 +51,7 @@ export default function Hero() {
             </a>
           </div>
           <p className="mt-4 text-center text-[14px] text-mist">
-            <span className="text-fog">$0 to start.</span> No credit card
+            <span className="text-fog">$0 to start (Early Access Beta).</span> No credit card
             required.
           </p>
         </div>

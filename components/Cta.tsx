@@ -20,7 +20,7 @@ export default function Cta() {
           Start free
         </Link>
         <p className="mt-4 text-[14px] text-mist">
-          <span className="text-fog">$0 to start.</span> No credit card
+          <span className="text-fog">$0 to start (Early Access Beta).</span> No credit card
           required.
         </p>
       </Reveal>

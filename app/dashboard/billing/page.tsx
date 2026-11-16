@@ -24,7 +24,9 @@ export default function BillingPage() {
             <span className="text-[clamp(4rem,8vw,6rem)] font-medium leading-none tracking-[-0.05em]">
               $0
             </span>
-            <span className="text-[15px] text-mist">per month</span>
+            <span className="text-[15px] text-mist">
+                  per month, free during the Early Access Beta
+                </span>
           </p>
           <p className="mt-6 max-w-[48ch] text-[15px] leading-relaxed text-mist">
             Paid plans with more AI replies are not available yet. When they
