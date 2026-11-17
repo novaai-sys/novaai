@@ -6,7 +6,10 @@ export default function Footer() {
     <footer className="border-t border-white/10 px-5 py-8 md:px-8">
       <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 text-[13px] text-mist">
         <Logo className="text-fog" />
-        <nav aria-label="Legal" className="flex gap-6">
+        <nav aria-label="Footer" className="flex flex-wrap gap-6">
+          <Link href="/pricing" className="hover:text-fog">
+            Pricing
+          </Link>
           <Link href="/privacy" className="hover:text-fog">
             Privacy Policy
           </Link>

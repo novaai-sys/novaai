@@ -6,6 +6,7 @@ import { useState } from "react";
 import Logo from "../Logo";
 import { createClient } from "@/lib/supabase/client";
 import { isPublished, useDashboard } from "./Store";
+import { planNames } from "@/lib/usage";
 
 const nav = [
   { href: "/dashboard", label: "Reviews" },
@@ -18,7 +19,7 @@ const nav = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { reviews, settings, user } = useDashboard();
+  const { reviews, settings, user, credits } = useDashboard();
   const [leaving, setLeaving] = useState(false);
   const awaiting = reviews.filter((r) => !isPublished(r)).length;
 
@@ -108,7 +109,9 @@ export default function Sidebar() {
               <span className="block truncate text-[13px] font-medium" title={user.email}>
                 {user.email}
               </span>
-              <span className="block text-[12px] text-mist">Free plan</span>
+              <span className="block text-[12px] text-mist">
+                {credits ? `${planNames[credits.plan]} plan` : "\u00a0"}
+              </span>
             </span>
           </span>
           {logOutButton}

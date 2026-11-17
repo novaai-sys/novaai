@@ -5,7 +5,7 @@ const links = [
   { href: "/#rules", label: "Autopilot rules" },
   { href: "/#languages", label: "Languages" },
   { href: "/#how", label: "How it works" },
-  { href: "/#pricing", label: "Pricing" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 export default function Nav() {
@@ -21,17 +21,23 @@ export default function Nav() {
             className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1 backdrop-blur-xl md:flex"
           >
             {links.map((l) => (
-              <a
+              <Link
                 key={l.href}
                 href={l.href}
                 className="rounded-full px-4 py-1.5 text-[13px] text-mist transition-colors hover:bg-white/10 hover:text-fog"
               >
                 {l.label}
-              </a>
+              </Link>
             ))}
           </nav>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/pricing"
+            className="rounded-full px-3 py-2 text-[13px] text-mist transition-colors hover:text-fog md:hidden"
+          >
+            Pricing
+          </Link>
           <Link
             href="/login"
             className="hidden rounded-full px-4 py-2 text-[13px] text-mist transition-colors hover:text-fog sm:block"

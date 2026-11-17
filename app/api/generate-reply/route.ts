@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { supabaseConfigured, missingEnvMessage } from "@/lib/supabase/env";
 import { toneInstruction } from "@/lib/tones";
+import { toUsage, type Usage } from "@/lib/usage";
 
 const MODEL = "gpt-4o-mini";
 // Override only to point at a proxy or a test double.
@@ -19,23 +20,22 @@ type Body = {
   reviewId?: unknown;
 };
 
-type Credits = { used: number; limit: number; remaining: number };
-
-const credits = (used: number, limit: number): Credits => ({
-  used,
-  limit,
-  remaining: Math.max(limit - used, 0),
-});
-
 const fail = (status: number, error: string, extra?: Record<string, unknown>) =>
   NextResponse.json({ error, ...extra }, { status });
 
-const noCredits = (c: Credits) =>
-  fail(
-    402,
-    `You have used all ${c.limit} free replies. Upgrade to generate more.`,
-    { code: "no_credits", credits: c },
-  );
+/** Why a free-trial account may not generate, as a 402 response. */
+const notAllowed = (u: Usage) =>
+  u.trialEnded
+    ? fail(
+        402,
+        "Your 7-day free trial has ended. Choose a plan to keep generating replies.",
+        { code: "trial_ended", credits: u },
+      )
+    : fail(
+        402,
+        `You have used all ${u.limit} replies included in the free trial. Choose a plan to keep generating replies.`,
+        { code: "no_credits", credits: u },
+      );
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
@@ -49,10 +49,14 @@ const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
  * Order of checks, cheapest first, so OpenAI is only called when it should be:
  *   1. the request is valid
  *   2. the user is signed in                          -> 401
- *   3. the user has free replies left (`profiles`)    -> 402, code "no_credits"
+ *   3. the plan allows another reply (`profiles`): Starter and Growth are
+ *      unlimited; the free trial allows 10 replies within 7 days
+ *                                                     -> 402, code
+ *                                                        "no_credits" or
+ *                                                        "trial_ended"
  *   4. OpenAI writes the reply
- *   5. `increment_credits_used()` counts it           -> 402 if the limit was
- *      reached in the meantime (two requests at once)
+ *   5. `increment_credits_used()` counts it           -> 402 if the trial ran
+ *      out in the meantime (two requests at once)
  *   6. the review is saved
  *
  * Status rule: with Autopilot on, 4 and 5 star reviews are saved as
@@ -93,11 +97,11 @@ export async function POST(request: Request) {
   const user = auth.user;
   if (!user) return fail(401, "Log in to generate a reply.");
 
-  // 3. The user must have free replies left. If the profile cannot be read,
+  // 3. The plan must allow another reply. If the profile cannot be read,
   //    stop here rather than spend OpenAI credit that cannot be counted.
   const { data: profileRows, error: profileError } = await supabase
     .from("profiles")
-    .select("credits_used, credits_limit")
+    .select("plan, credits_used, credits_limit, trial_ends_at")
     .eq("id", user.id)
     .limit(1);
   const profile = profileRows?.[0];
@@ -105,12 +109,12 @@ export async function POST(request: Request) {
   if (profileError || !profile) {
     return fail(
       500,
-      "Your usage record could not be read. Run supabase/credits.sql in the Supabase SQL editor, then try again.",
+      "Your plan could not be read. Run supabase/credits.sql and then supabase/plans.sql in the Supabase SQL editor, and try again.",
     );
   }
 
-  const before = credits(profile.credits_used, profile.credits_limit);
-  if (before.remaining <= 0) return noCredits(before);
+  const before = toUsage(profile);
+  if (!before.canGenerate) return notAllowed(before);
 
   // Saved settings fill in whatever the request leaves out, and decide
   // whether Autopilot may publish.
@@ -141,20 +145,23 @@ export async function POST(request: Request) {
     return fail(502, e instanceof Error ? e.message : "OpenAI request failed.");
   }
 
-  // 5. Count the reply. The database adds 1 only while the user is under the
-  //    limit, so this is also the final guard against two requests at once.
+  // 5. Count the reply. For the free trial the database adds 1 only while
+  //    the trial is open, so this is also the final guard against two
+  //    requests at once. Paid plans are always counted.
   const { data: counted, error: countError } = await supabase.rpc(
     "increment_credits_used",
   );
   if (countError) {
     return fail(
       500,
-      "The reply could not be counted, so it was not saved. Run supabase/credits.sql in the Supabase SQL editor, then try again.",
+      "The reply could not be counted, so it was not saved. Run supabase/plans.sql in the Supabase SQL editor, then try again.",
     );
   }
   const row = Array.isArray(counted) ? counted[0] : counted;
-  if (!row) return noCredits(credits(before.limit, before.limit));
-  const after = credits(row.credits_used, row.credits_limit);
+  if (!row) {
+    return notAllowed(toUsage({ ...profile, credits_used: profile.credits_limit }));
+  }
+  const after = toUsage(row);
 
   // 6. Save the review and its reply.
   const status =

@@ -10,17 +10,9 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { BusinessSettings, Review } from "@/lib/types";
+import { toUsage, type Usage } from "@/lib/usage";
 
 export type DashboardUser = { id: string; email: string };
-
-/** Free AI replies: how many are used, the limit, and what is left. */
-export type Credits = { used: number; limit: number; remaining: number };
-
-const toCredits = (used: number, limit: number): Credits => ({
-  used,
-  limit,
-  remaining: Math.max(limit - used, 0),
-});
 
 export type TestReviewInput = {
   reviewerName: string;
@@ -37,8 +29,8 @@ type Store = {
   saveError: string | null;
   settings: BusinessSettings;
   reviews: Review[];
-  /** null when the `profiles` table could not be read. */
-  credits: Credits | null;
+  /** Plan and AI-reply usage. null when `profiles` could not be read. */
+  credits: Usage | null;
   updateSettings: (patch: Partial<Omit<BusinessSettings, "user_id">>) => Promise<boolean>;
   publish: (id: string, reply?: string) => Promise<void>;
   addTestReview: (input: TestReviewInput) => Promise<string | null>;
@@ -69,7 +61,7 @@ export function DashboardStore({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [credits, setCredits] = useState<Credits | null>(null);
+  const [credits, setCredits] = useState<Usage | null>(null);
   const [settings, setSettings] = useState<BusinessSettings>({
     user_id: user.id,
     business_name: "My business",
@@ -117,18 +109,18 @@ export function DashboardStore({
           .order("created_at", { ascending: false });
         if (list.error) throw list.error;
 
-        // Free-reply counter. Not fatal if it is missing: the dashboard still
-        // works, and the API refuses to generate until the table exists.
+        // Plan and usage. Not fatal if missing: the dashboard still works,
+        // and the API refuses to generate until the SQL files have run.
         const profile = await supabase
           .from("profiles")
-          .select("credits_used, credits_limit")
+          .select("plan, credits_used, credits_limit, trial_ends_at")
           .eq("id", user.id)
           .limit(1);
         const p = profile.data?.[0];
 
         if (cancelled) return;
         if (row) setSettings(row);
-        if (p) setCredits(toCredits(p.credits_used, p.credits_limit));
+        if (p) setCredits(toUsage(p));
         setReviews(
           (list.data ?? []).map((r) => ({ ...r, id: String(r.id) })) as Review[],
         );
@@ -201,7 +193,7 @@ export function DashboardStore({
         });
         const json = await res.json().catch(() => ({}));
         // The server is the source of truth for the counter.
-        if (json.credits) setCredits(json.credits as Credits);
+        if (json.credits) setCredits(json.credits as Usage);
         if (!res.ok || !json.review) {
           return json.error ?? `The request failed (${res.status}).`;
         }

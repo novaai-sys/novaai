@@ -29,7 +29,7 @@ const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;
 
 export default function Board() {
   const { reviews, settings, credits, updateSettings, publish } = useDashboard();
-  const outOfCredits = credits !== null && credits.remaining === 0;
+  const outOfCredits = credits !== null && !credits.canGenerate;
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");

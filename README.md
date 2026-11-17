@@ -32,7 +32,12 @@ Restart `npm run dev` after changing `.env.local`.
    once. It creates `profiles` (10 free AI replies per user), the sign-up
    trigger and the `increment_credits_used()` function. Until it is run,
    `/api/generate-reply` refuses to generate.
-5. **Email confirmation.** Authentication > Sign In / Providers > Email.
+5. **Plans.** Then run [`supabase/plans.sql`](supabase/plans.sql). It adds
+   `profiles.plan` (`free`, `starter` or `growth`) and
+   `profiles.trial_ends_at`. The free trial allows 10 replies within 7 days;
+   Starter and Growth are unlimited. To move a customer to a paid plan:
+   `update public.profiles set plan = 'starter' where id = '<user uuid>';`
+6. **Email confirmation.** Authentication > Sign In / Providers > Email.
    With "Confirm email" on, new users must click the link in their inbox
    before they can log in. Turn it off for sign-up to open the dashboard
    straight away.
@@ -65,6 +70,7 @@ Restart `npm run dev` after changing `.env.local`.
 - Google Business Profile connection. Nothing is read from or posted to
   Google; "Published" means approved inside NovaAI.
 - Sending alert emails. The address is stored only.
-- Payments. The Billing page shows the free plan; when the 10 free replies
-  are used there is no way to buy more yet. Raise `profiles.credits_limit`
-  by hand in the SQL editor.
+- Payments. Paid plans are switched by hand in the SQL editor (see Plans
+  above). Setting the `NEXT_PUBLIC_LEMONSQUEEZY_*` variables in `.env.local`
+  sends the pricing and Billing buttons to checkout, but nothing updates
+  `profiles.plan` after a payment yet: that needs a Lemon Squeezy webhook.

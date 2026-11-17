@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Logo from "./Logo";
+import PlanNotice from "./PlanNotice";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const field =
@@ -75,9 +77,14 @@ export default function AuthCard({ mode }: { mode: "signup" | "login" }) {
         </h1>
         <p className="mt-2 text-[15px] text-mist">
           {signup
-            ? "$0 to start (Early Access Beta). No credit card required."
+            ? "7-day free trial. No credit card required."
             : "Welcome back. Your reviews are waiting."}
         </p>
+        {signup && (
+          <Suspense fallback={null}>
+            <PlanNotice />
+          </Suspense>
+        )}
 
         <form onSubmit={submit} className="mt-7 space-y-4">
           <div>

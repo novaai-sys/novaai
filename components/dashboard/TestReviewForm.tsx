@@ -12,7 +12,7 @@ const field =
  */
 export default function TestReviewForm({ onDone }: { onDone: () => void }) {
   const { addTestReview, settings, credits } = useDashboard();
-  const outOfCredits = credits !== null && credits.remaining === 0;
+  const outOfCredits = credits !== null && !credits.canGenerate;
   const [name, setName] = useState("Test customer");
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
@@ -46,10 +46,10 @@ export default function TestReviewForm({ onDone }: { onDone: () => void }) {
       <p className="mt-1 max-w-[62ch] text-[14px] text-mist">
         Nova writes a real reply in your “{settings.tone_of_voice}” tone and
         saves both. Nothing is posted to Google.
-        {credits && (
+        {credits && credits.remaining !== null && (
           <>
             {" "}
-            This uses 1 of your {credits.remaining} remaining free{" "}
+            This uses 1 of your {credits.remaining} remaining trial{" "}
             {credits.remaining === 1 ? "reply" : "replies"}.
           </>
         )}
