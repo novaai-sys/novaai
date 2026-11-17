@@ -22,7 +22,7 @@ export default function AutopilotPage() {
   return (
     <PageShell
       title="Autopilot"
-      summary="Choose whether Nova publishes replies to good reviews without asking. Lower ratings are always drafted and sent to you."
+      summary="Choose whether Nova publishes replies to 4 and 5-star reviews without asking. This is the default for test reviews and for new Google locations; each location also has its own switch on the Locations page. Replies to 1 to 3-star reviews always wait for you."
     >
       <ul className="divide-y divide-white/10 border-y border-white/10">
         {ruleRows.map((row) => {
@@ -102,8 +102,8 @@ export default function AutopilotPage() {
           </h2>
           <p className="mt-1 text-[14px] leading-relaxed text-mist" aria-live="polite">
             {on
-              ? "New 4 and 5 star reviews are saved as published. Reviews with 1 to 3 stars wait on the Reviews page until you approve them."
-              : "Every new reply waits on the Reviews page until you approve it."}
+              ? "Replies to new 4 and 5-star test reviews are published right away, and new Google locations start with auto-reply on. Replies to 1 to 3-star reviews wait on the Reviews page until you approve them."
+              : "Every new reply to a test review waits on the Reviews page until you approve it, and new Google locations start with auto-reply off."}
           </p>
         </section>
       </div>

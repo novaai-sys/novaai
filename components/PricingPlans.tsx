@@ -89,7 +89,7 @@ function PlanCard({
 }) {
   const price = plan.price[billing];
   const paid = plan.price.monthly > 0;
-  const { href, external } = planHref(plan, billing);
+  const href = planHref(plan, billing);
 
   const note = !paid
     ? "No credit card required"
@@ -171,15 +171,9 @@ function PlanCard({
           ))}
         </ul>
 
-        {external ? (
-          <a href={href} className={button}>
-            {plan.cta}
-          </a>
-        ) : (
-          <Link href={href} className={button}>
-            {plan.cta}
-          </Link>
-        )}
+        <Link href={href} className={button}>
+          {plan.cta}
+        </Link>
       </div>
     </li>
   );

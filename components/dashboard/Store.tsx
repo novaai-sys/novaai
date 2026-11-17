@@ -9,8 +9,8 @@ import {
   useState,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { BusinessSettings, Review } from "@/lib/types";
-import { toUsage, type Usage } from "@/lib/usage";
+import type { BusinessSettings, GoogleConnection, Location, Review } from "@/lib/types";
+import { PROFILE_COLUMNS, toUsage, type Usage } from "@/lib/usage";
 
 export type DashboardUser = { id: string; email: string };
 
@@ -31,9 +31,20 @@ type Store = {
   reviews: Review[];
   /** Plan and AI-reply usage. null when `profiles` could not be read. */
   credits: Usage | null;
+  locations: Location[];
+  google: GoogleConnection | null;
   updateSettings: (patch: Partial<Omit<BusinessSettings, "user_id">>) => Promise<boolean>;
-  publish: (id: string, reply?: string) => Promise<void>;
+  /** Approve & publish, or update a published reply. Returns an error or null. */
+  publish: (id: string, reply?: string) => Promise<string | null>;
+  /** New AI draft for a review waiting for approval. Returns an error or null. */
+  regenerate: (id: string) => Promise<string | null>;
   addTestReview: (input: TestReviewInput) => Promise<string | null>;
+  setLocationAutoReply: (id: string, on: boolean) => Promise<void>;
+  /** Re-reads plan, usage, locations and reviews from Supabase. */
+  refresh: () => Promise<Usage | null>;
+  /** Merges reviews returned by the API into the list. */
+  mergeReviews: (rows: Review[]) => void;
+  setCredits: (u: Usage) => void;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -45,10 +56,24 @@ const describe = (e: unknown) =>
       ? String((e as { message: unknown }).message)
       : "Something went wrong.";
 
+const normalize = (r: Review): Review => ({ ...r, id: String(r.id) });
+
+async function postJson(url: string, body?: unknown) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, json };
+}
+
 /**
- * Loads the signed-in user's settings and reviews from Supabase and keeps
- * them in sync. Every change is written to the database; the screen updates
- * first and rolls back if the write fails.
+ * Loads the signed-in user's settings, plan, locations and reviews from
+ * Supabase. Settings and auto-reply switches are written directly (row level
+ * security limits each user to their own rows); anything that generates or
+ * publishes a reply goes through the API, which enforces the plan and the
+ * star-rating rules.
  */
 export function DashboardStore({
   user,
@@ -62,6 +87,8 @@ export function DashboardStore({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [credits, setCredits] = useState<Usage | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [google, setGoogle] = useState<GoogleConnection | null>(null);
   const [settings, setSettings] = useState<BusinessSettings>({
     user_id: user.id,
     business_name: "My business",
@@ -69,6 +96,30 @@ export function DashboardStore({
     autopilot_enabled: true,
     alert_email: user.email,
   });
+
+  const loadSecondary = useCallback(async () => {
+    const supabase = createClient();
+    // Not fatal if missing: the SQL migration may not have run yet.
+    const [profile, locs, conn] = await Promise.all([
+      supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).limit(1),
+      supabase
+        .from("locations")
+        .select("id, title, address, google_location_id, auto_reply_enabled, last_synced_at")
+        .eq("user_id", user.id)
+        .order("created_at"),
+      supabase
+        .from("google_connections")
+        .select("google_email, created_at")
+        .eq("user_id", user.id)
+        .limit(1),
+    ]);
+    const usage = profile.data?.[0] ? toUsage(profile.data[0]) : null;
+    return {
+      usage,
+      locations: (locs.data ?? []) as Location[],
+      google: (conn.data?.[0] ?? null) as GoogleConnection | null,
+    };
+  }, [user.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,21 +160,14 @@ export function DashboardStore({
           .order("created_at", { ascending: false });
         if (list.error) throw list.error;
 
-        // Plan and usage. Not fatal if missing: the dashboard still works,
-        // and the API refuses to generate until the SQL files have run.
-        const profile = await supabase
-          .from("profiles")
-          .select("plan, credits_used, credits_limit, trial_ends_at")
-          .eq("id", user.id)
-          .limit(1);
-        const p = profile.data?.[0];
+        const extra = await loadSecondary();
 
         if (cancelled) return;
         if (row) setSettings(row);
-        if (p) setCredits(toUsage(p));
-        setReviews(
-          (list.data ?? []).map((r) => ({ ...r, id: String(r.id) })) as Review[],
-        );
+        setCredits(extra.usage);
+        setLocations(extra.locations);
+        setGoogle(extra.google);
+        setReviews((list.data ?? []).map(normalize));
       } catch (e) {
         if (!cancelled) setLoadError(describe(e));
       } finally {
@@ -134,7 +178,34 @@ export function DashboardStore({
     return () => {
       cancelled = true;
     };
-  }, [user.id, user.email]);
+  }, [user.id, user.email, loadSecondary]);
+
+  const refresh = useCallback(async () => {
+    const extra = await loadSecondary();
+    const list = await createClient()
+      .from("reviews")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setCredits(extra.usage);
+    setLocations(extra.locations);
+    setGoogle(extra.google);
+    if (list.data) setReviews(list.data.map(normalize));
+    return extra.usage;
+  }, [loadSecondary, user.id]);
+
+  const mergeReviews = useCallback((rows: Review[]) => {
+    setReviews((current) => {
+      const byId = new Map(current.map((r) => [r.id, r]));
+      const added: Review[] = [];
+      for (const raw of rows) {
+        const r = normalize(raw);
+        if (byId.has(r.id)) byId.set(r.id, r);
+        else added.push(r);
+      }
+      return [...added, ...current.map((r) => byId.get(r.id)!)];
+    });
+  }, []);
 
   const updateSettings = useCallback<Store["updateSettings"]>(
     async (patch) => {
@@ -159,52 +230,65 @@ export function DashboardStore({
 
   const publish = useCallback<Store["publish"]>(
     async (id, reply) => {
-      const before = reviews;
-      const patch: Partial<Review> = { status: "published" };
-      if (reply !== undefined) patch.ai_reply = reply;
-      setReviews(reviews.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-      setSaveError(null);
       try {
-        const { error } = await createClient()
-          .from("reviews")
-          .update(patch)
-          .eq("id", id)
-          .eq("user_id", user.id);
-        if (error) throw error;
+        const { ok, status, json } = await postJson(
+          `/api/reviews/${encodeURIComponent(id)}/publish`,
+          reply === undefined ? {} : { reply },
+        );
+        if (json.review) mergeReviews([json.review]);
+        return ok ? null : (json.error ?? `The request failed (${status}).`);
       } catch (e) {
-        setReviews(before);
-        setSaveError(`The reply was not saved: ${describe(e)}`);
+        return describe(e);
       }
     },
-    [reviews, user.id],
+    [mergeReviews],
+  );
+
+  const regenerate = useCallback<Store["regenerate"]>(
+    async (id) => {
+      try {
+        const { ok, status, json } = await postJson("/api/reviews/process", { reviewId: id });
+        if (json.credits) setCredits(json.credits as Usage);
+        if (json.review) mergeReviews([json.review]);
+        return ok ? null : (json.error ?? `The request failed (${status}).`);
+      } catch (e) {
+        return describe(e);
+      }
+    },
+    [mergeReviews],
   );
 
   const addTestReview = useCallback<Store["addTestReview"]>(
     async (input) => {
       try {
-        const res = await fetch("/api/generate-reply", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...input,
-            toneOfVoice: settings.tone_of_voice,
-            businessName: settings.business_name,
-          }),
-        });
-        const json = await res.json().catch(() => ({}));
+        const { ok, status, json } = await postJson("/api/reviews/process", input);
         // The server is the source of truth for the counter.
         if (json.credits) setCredits(json.credits as Usage);
-        if (!res.ok || !json.review) {
-          return json.error ?? `The request failed (${res.status}).`;
-        }
-        const review = { ...json.review, id: String(json.review.id) } as Review;
-        setReviews((rs) => [review, ...rs]);
+        if (!ok || !json.review) return json.error ?? `The request failed (${status}).`;
+        mergeReviews([json.review]);
         return null;
       } catch (e) {
         return describe(e);
       }
     },
-    [settings.tone_of_voice, settings.business_name],
+    [mergeReviews],
+  );
+
+  const setLocationAutoReply = useCallback<Store["setLocationAutoReply"]>(
+    async (id, on) => {
+      const before = locations;
+      setLocations(locations.map((l) => (l.id === id ? { ...l, auto_reply_enabled: on } : l)));
+      setSaveError(null);
+      const { error } = await createClient()
+        .from("locations")
+        .update({ auto_reply_enabled: on })
+        .eq("id", id);
+      if (error) {
+        setLocations(before);
+        setSaveError(`Your change was not saved: ${error.message}`);
+      }
+    },
+    [locations],
   );
 
   const value = useMemo<Store>(
@@ -216,11 +300,22 @@ export function DashboardStore({
       settings,
       reviews,
       credits,
+      locations,
+      google,
       updateSettings,
       publish,
+      regenerate,
       addTestReview,
+      setLocationAutoReply,
+      refresh,
+      mergeReviews,
+      setCredits,
     }),
-    [user, loading, loadError, saveError, settings, reviews, credits, updateSettings, publish, addTestReview],
+    [
+      user, loading, loadError, saveError, settings, reviews, credits, locations, google,
+      updateSettings, publish, regenerate, addTestReview, setLocationAutoReply, refresh,
+      mergeReviews,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -233,3 +328,4 @@ export function useDashboard() {
 }
 
 export const isPublished = (r: Review) => r.status === "published";
+export const needsApproval = (r: Review) => r.status !== "published";

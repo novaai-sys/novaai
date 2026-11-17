@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Logo from "./Logo";
 import PlanNotice from "./PlanNotice";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
+import { safeNext } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/client";
 
 const field =
@@ -21,6 +22,13 @@ export default function AuthCard({ mode }: { mode: "signup" | "login" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Query string kept for the "Log in" / "Start free" link (plan and next).
+  const [carry, setCarry] = useState("");
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCarry(window.location.search);
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +55,8 @@ export default function AuthCard({ mode }: { mode: "signup" | "login" }) {
         if (error) throw error;
       }
 
-      router.push("/dashboard");
+      const next = safeNext(new URLSearchParams(window.location.search).get("next"));
+      router.push(next ?? "/dashboard");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
@@ -148,7 +157,7 @@ export default function AuthCard({ mode }: { mode: "signup" | "login" }) {
         <p className="mt-6 text-[14px] text-mist">
           {signup ? "Already have an account? " : "New to NovaAI? "}
           <Link
-            href={signup ? "/login" : "/signup"}
+            href={`${signup ? "/login" : "/signup"}${carry}`}
             className="text-fog underline decoration-white/30 underline-offset-4 hover:decoration-white"
           >
             {signup ? "Log in" : "Start free"}

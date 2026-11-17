@@ -14,7 +14,7 @@ export default function CreditsBadge() {
   const { credits } = useDashboard();
   if (!credits) return null;
 
-  if (credits.plan !== "free") {
+  if (credits.paidAccess) {
     return (
       <div className="rounded-2xl border border-ice/25 bg-ice/10 px-4 py-2.5">
         <p role="status" className="text-[13px] text-ice">

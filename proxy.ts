@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAnonKey, supabaseConfigured, supabaseUrl } from "@/lib/supabase/env";
+import { safeNext } from "@/lib/billing";
 
 /**
  * Runs before dashboard, auth and API requests. Refreshes the Supabase
@@ -12,15 +13,22 @@ export async function proxy(request: NextRequest) {
   const isDashboard = path.startsWith("/dashboard");
   const isAuthPage = path === "/login" || path === "/signup";
 
-  const redirectTo = (to: string) => {
+  const redirectTo = (to: string, search = "") => {
     const url = request.nextUrl.clone();
     url.pathname = to;
-    url.search = "";
+    url.search = search;
     return NextResponse.redirect(url);
   };
 
+  // Signed-out visitors to the dashboard come back to the same page after login.
+  const loginWithNext = () =>
+    redirectTo(
+      "/login",
+      `?next=${encodeURIComponent(path + request.nextUrl.search)}`,
+    );
+
   if (!supabaseConfigured) {
-    return isDashboard ? redirectTo("/login") : NextResponse.next();
+    return isDashboard ? loginWithNext() : NextResponse.next();
   }
 
   let response = NextResponse.next({ request });
@@ -46,8 +54,16 @@ export async function proxy(request: NextRequest) {
     signedIn = false;
   }
 
-  if (isDashboard && !signedIn) return redirectTo("/login");
-  if (isAuthPage && signedIn) return redirectTo("/dashboard");
+  if (isDashboard && !signedIn) return loginWithNext();
+  if (isAuthPage && signedIn) {
+    // Already signed in: go where sign-up/login would have sent them.
+    const next = safeNext(request.nextUrl.searchParams.get("next"));
+    if (next) {
+      const [p, q] = next.split("?");
+      return redirectTo(p, q ? `?${q}` : "");
+    }
+    return redirectTo("/dashboard");
+  }
   return response;
 }
 

@@ -3,7 +3,8 @@
  * button goes, used by the landing page section and /pricing.
  */
 
-export type Billing = "monthly" | "annual";
+import type { Billing } from "./billing";
+export type { Billing };
 
 export type Plan = {
   id: "free" | "starter" | "growth";
@@ -62,32 +63,14 @@ export const plans: Plan[] = [
 ];
 
 /**
- * Lemon Squeezy checkout links, set in .env.local once the products exist.
- * Each variable is read by its full name so Next.js can inline it.
- */
-const checkoutUrls: Record<"starter" | "growth", Record<Billing, string | undefined>> = {
-  starter: {
-    monthly: process.env.NEXT_PUBLIC_LEMONSQUEEZY_STARTER_MONTHLY_URL,
-    annual: process.env.NEXT_PUBLIC_LEMONSQUEEZY_STARTER_ANNUAL_URL,
-  },
-  growth: {
-    monthly: process.env.NEXT_PUBLIC_LEMONSQUEEZY_GROWTH_MONTHLY_URL,
-    annual: process.env.NEXT_PUBLIC_LEMONSQUEEZY_GROWTH_ANNUAL_URL,
-  },
-};
-
-/**
- * Where a plan's button goes. Paid plans open the Lemon Squeezy checkout
- * when its link is configured; otherwise, and for the free trial, the
- * button opens sign-up with the chosen plan in the address.
+ * Where a plan's button goes. The free trial opens sign-up. Paid plans open
+ * sign-up too, then continue to the Paddle checkout on the Billing page; a
+ * visitor who is already signed in skips straight to checkout.
  */
 export function planHref(plan: Plan, billing: Billing) {
-  if (plan.id !== "free") {
-    const url = checkoutUrls[plan.id][billing];
-    if (url) return { href: url, external: true };
-    return { href: `/signup?plan=${plan.id}&billing=${billing}`, external: false };
-  }
-  return { href: "/signup?plan=free", external: false };
+  if (plan.id === "free") return "/signup?plan=free";
+  const next = `/dashboard/billing?checkout=${plan.id}-${billing}`;
+  return `/signup?plan=${plan.id}&billing=${billing}&next=${encodeURIComponent(next)}`;
 }
 
 export const findPlan = (id: string | null) =>

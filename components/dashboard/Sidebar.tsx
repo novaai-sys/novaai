@@ -110,7 +110,9 @@ export default function Sidebar() {
                 {user.email}
               </span>
               <span className="block text-[12px] text-mist">
-                {credits ? `${planNames[credits.plan]} plan` : "\u00a0"}
+                {credits
+                  ? `${planNames[credits.paidAccess ? credits.plan : "free"]} plan`
+                  : "\u00a0"}
               </span>
             </span>
           </span>

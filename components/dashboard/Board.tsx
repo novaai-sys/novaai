@@ -5,18 +5,12 @@ import Stars from "../Stars";
 import Switch from "./Switch";
 import TestReviewForm from "./TestReviewForm";
 import CreditsBadge, { UpgradeNotice } from "./CreditsBadge";
+import UpgradeBanner from "./UpgradeBanner";
 import { ruleRows } from "./rules";
-import { isPublished, useDashboard } from "./Store";
+import { isPublished, needsApproval, useDashboard } from "./Store";
 import type { Review } from "@/lib/types";
 
-type Filter = "all" | "high" | "low" | "awaiting";
-
-const filters: { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "high", label: "4–5 stars" },
-  { id: "low", label: "1–3 stars" },
-  { id: "awaiting", label: "Waiting for you" },
-];
+type Filter = "all" | "approval" | "auto" | "approved";
 
 const dateFormat = new Intl.DateTimeFormat("en", {
   day: "numeric",
@@ -28,50 +22,44 @@ const dateFormat = new Intl.DateTimeFormat("en", {
 const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;
 
 export default function Board() {
-  const { reviews, settings, credits, updateSettings, publish } = useDashboard();
-  const outOfCredits = credits !== null && !credits.canGenerate;
+  const { reviews, settings, credits, locations, updateSettings } = useDashboard();
   const [filter, setFilter] = useState<Filter>("all");
-  const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(false);
+  const outOfCredits = credits !== null && !credits.canGenerate;
 
   const stats = useMemo(() => {
     const total = reviews.length;
-    const average = total
-      ? reviews.reduce((s, r) => s + r.rating, 0) / total
-      : null;
-    const awaiting = reviews.filter((r) => !isPublished(r)).length;
+    const average = total ? reviews.reduce((s, r) => s + r.rating, 0) / total : null;
+    const waiting = reviews.filter(needsApproval).length;
+    const auto = reviews.filter((r) => isPublished(r) && r.auto_published).length;
     const byStar = [5, 4, 3, 2, 1].map((star) => ({
       star,
       count: reviews.filter((r) => r.rating === star).length,
     }));
-    return { total, average, awaiting, published: total - awaiting, byStar };
+    return { total, average, waiting, auto, published: total - waiting, byStar };
   }, [reviews]);
 
+  const filters: { id: Filter; label: string; count?: number }[] = [
+    { id: "all", label: "All" },
+    { id: "approval", label: "Needs approval", count: stats.waiting },
+    { id: "auto", label: "Auto-published" },
+    { id: "approved", label: "Approved by you" },
+  ];
+
   const visible = reviews.filter((r) => {
-    if (filter === "high") return r.rating >= 4;
-    if (filter === "low") return r.rating <= 3;
-    if (filter === "awaiting") return !isPublished(r);
+    if (filter === "approval") return needsApproval(r);
+    if (filter === "auto") return isPublished(r) && r.auto_published;
+    if (filter === "approved") return isPublished(r) && !r.auto_published;
     return true;
   });
-
-  const publishReply = (id: string, reply?: string) => {
-    void publish(id, reply);
-    setEditing(null);
-  };
-
-  const startEdit = (r: Review) => {
-    setEditing(r.id);
-    setDraft(r.ai_reply ?? "");
-  };
 
   const maxCount = Math.max(...stats.byStar.map((b) => b.count), 1);
 
   const summary =
     stats.total === 0
       ? "No reviews yet. Add a test review to see Nova write a reply."
-      : stats.awaiting > 0
-        ? `${stats.awaiting} ${stats.awaiting === 1 ? "reply is" : "replies are"} waiting for your approval.`
+      : stats.waiting > 0
+        ? `${stats.waiting} ${stats.waiting === 1 ? "reply needs" : "replies need"} your approval.`
         : "Nothing is waiting for you. Every review has a reply.";
 
   return (
@@ -99,15 +87,14 @@ export default function Board() {
         </div>
       </header>
 
+      <UpgradeBanner />
+
       <div id="upgrade-notice">
         <UpgradeNotice />
       </div>
 
-      {adding && !outOfCredits && (
-        <TestReviewForm onDone={() => setAdding(false)} />
-      )}
+      {adding && !outOfCredits && <TestReviewForm onDone={() => setAdding(false)} />}
 
-      {/* Headline figures: one strip, divided by hairlines. */}
       <dl
         style={d(0.1)}
         className="rise mt-10 grid grid-cols-2 border-y border-white/10 md:grid-cols-4 md:divide-x md:divide-white/10"
@@ -118,12 +105,11 @@ export default function Board() {
           value={stats.average === null ? "–" : stats.average.toFixed(1)}
           suffix={stats.average === null ? undefined : <StarGlyph />}
         />
-        <Figure label="Replies published" value={String(stats.published)} />
-        <Figure label="Waiting for you" value={String(stats.awaiting)} />
+        <Figure label="Auto-published" value={String(stats.auto)} />
+        <Figure label="Needs approval" value={String(stats.waiting)} />
       </dl>
 
       <div style={d(0.2)} className="rise mt-8 grid gap-6 lg:grid-cols-[1fr_1.15fr]">
-        {/* Rating distribution */}
         <section
           aria-labelledby="dist-title"
           className="rounded-card border border-white/10 bg-panel/70 p-6 md:p-7"
@@ -154,7 +140,6 @@ export default function Board() {
           </ul>
         </section>
 
-        {/* Autopilot */}
         <section
           aria-labelledby="auto-title"
           className="rounded-card border border-white/10 bg-panel/70 p-6 md:p-7"
@@ -163,7 +148,9 @@ export default function Board() {
             Autopilot
           </h2>
           <p className="mt-1 text-[14px] text-mist">
-            Choose whether Nova publishes good reviews without asking.
+            {locations.length > 0
+              ? "Default for test reviews and new locations. Each Google location has its own switch on the Locations page."
+              : "Whether Nova publishes replies to 4 and 5-star reviews without asking."}
           </p>
           <ul className="mt-4 divide-y divide-white/10">
             {ruleRows.map((row) => {
@@ -184,9 +171,7 @@ export default function Board() {
                     <Switch
                       checked={settings.autopilot_enabled}
                       onChange={() =>
-                        void updateSettings({
-                          autopilot_enabled: !settings.autopilot_enabled,
-                        })
+                        void updateSettings({ autopilot_enabled: !settings.autopilot_enabled })
                       }
                       label="Publish replies to 4 and 5 star reviews without asking"
                     />
@@ -200,7 +185,6 @@ export default function Board() {
         </section>
       </div>
 
-      {/* Reviews table */}
       <section aria-labelledby="table-title" style={d(0.3)} className="rise mt-10">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 id="table-title" className="text-[17px] font-medium">
@@ -218,20 +202,27 @@ export default function Board() {
                 type="button"
                 aria-selected={filter === f.id}
                 onClick={() => setFilter(f.id)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-[13px] transition-colors ${
-                  filter === f.id
-                    ? "bg-fog text-ink"
-                    : "text-mist hover:bg-white/10 hover:text-fog"
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-1.5 text-[13px] transition-colors ${
+                  filter === f.id ? "bg-fog text-ink" : "text-mist hover:bg-white/10 hover:text-fog"
                 }`}
               >
                 {f.label}
+                {f.count ? (
+                  <span
+                    className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                      filter === f.id ? "bg-ink/10" : "bg-star/15 text-star"
+                    }`}
+                  >
+                    {f.count}
+                  </span>
+                ) : null}
               </button>
             ))}
           </div>
         </div>
 
         <div className="mt-5 overflow-x-auto rounded-card border border-white/10 bg-panel/70">
-          <table className="block w-full border-collapse text-left text-[14px] md:table md:min-w-[820px]">
+          <table className="block w-full border-collapse text-left text-[14px] md:table md:min-w-[860px]">
             <thead className="hidden md:table-header-group">
               <tr className="border-b border-white/10 text-[13px] text-mist">
                 <th scope="col" className="px-6 py-4 font-normal">Customer</th>
@@ -244,99 +235,16 @@ export default function Board() {
             </thead>
             <tbody className="block divide-y divide-white/10 md:table-row-group">
               {visible.map((r) => (
-                <tr key={r.id} className="block p-5 align-top md:table-row md:p-0">
-                  <td className="block md:table-cell md:w-44 md:px-6 md:py-5">
-                    <span className="block font-medium">{r.reviewer_name}</span>
-                    <span className="mt-1.5 block">
-                      <Stars count={r.rating} size={13} />
-                    </span>
-                    <span className="mt-1.5 block text-[12px] text-mist">
-                      {dateFormat.format(new Date(r.created_at))}
-                    </span>
-                  </td>
-                  <td className="block pt-4 md:table-cell md:px-4 md:py-5">
-                    <p className="max-w-[58ch] leading-relaxed text-fog">
-                      {r.review_text}
-                    </p>
-                    {editing === r.id ? (
-                      <div className="mt-3 max-w-[58ch]">
-                        <label htmlFor={`edit-${r.id}`} className="sr-only">
-                          Edit reply to {r.reviewer_name}
-                        </label>
-                        <textarea
-                          id={`edit-${r.id}`}
-                          value={draft}
-                          onChange={(e) => setDraft(e.target.value)}
-                          rows={4}
-                          className="w-full rounded-xl border border-white/15 bg-ink/60 p-3 leading-relaxed text-fog outline-none focus:border-ice/60"
-                        />
-                      </div>
-                    ) : (
-                      <p className="mt-3 max-w-[58ch] border-l border-white/15 pl-3 leading-relaxed text-mist">
-                        {r.ai_reply || "No reply yet."}
-                      </p>
-                    )}
-                  </td>
-                  <td className="block pt-4 md:table-cell md:w-40 md:px-4 md:py-5">
-                    <StatusChip published={isPublished(r)} />
-                  </td>
-                  <td className="block pt-4 md:table-cell md:w-56 md:px-6 md:py-5">
-                    <div className="flex flex-wrap gap-2 md:flex-col md:items-end">
-                      {editing === r.id ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => publishReply(r.id, draft.trim())}
-                            disabled={draft.trim() === ""}
-                            className="rounded-full bg-fog px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-white disabled:opacity-40"
-                          >
-                            Publish reply
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditing(null)}
-                            className="rounded-full px-4 py-2 text-[13px] text-mist hover:text-fog"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : !isPublished(r) ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => publishReply(r.id)}
-                            disabled={!r.ai_reply}
-                            className="rounded-full bg-fog px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-white disabled:opacity-40"
-                          >
-                            Publish reply
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => startEdit(r)}
-                            className="rounded-full border border-white/15 px-4 py-2 text-[13px] text-fog transition-colors hover:bg-white/5"
-                          >
-                            Edit reply
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => startEdit(r)}
-                          className="rounded-full border border-white/15 px-4 py-2 text-[13px] text-fog transition-colors hover:bg-white/5"
-                        >
-                          Edit reply
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                <ReviewRow key={r.id} review={r} canGenerate={!outOfCredits} />
               ))}
               {visible.length === 0 && (
                 <tr className="block md:table-row">
                   <td colSpan={4} className="block px-6 py-14 text-center text-mist md:table-cell">
                     {reviews.length === 0
                       ? "No reviews yet. Choose “Add test review” to create one."
-                      : "No reviews match this filter. Choose “All” to see every review."}
+                      : filter === "approval"
+                        ? "Nothing needs your approval."
+                        : "No reviews match this filter. Choose “All” to see every review."}
                   </td>
                 </tr>
               )}
@@ -344,23 +252,164 @@ export default function Board() {
           </table>
         </div>
         <p className="mt-4 text-[13px] text-ghost">
-          Google is not connected yet, so “Published” means approved in NovaAI.
-          Nothing is posted to Google.
+          Replies to 1 to 3-star reviews always wait for your approval. Test
+          reviews are never posted to Google.
         </p>
       </section>
     </div>
   );
 }
 
-function Figure({
-  label,
-  value,
-  suffix,
-}: {
-  label: string;
-  value: string;
-  suffix?: React.ReactNode;
-}) {
+function ReviewRow({ review: r, canGenerate }: { review: Review; canGenerate: boolean }) {
+  const { publish, regenerate } = useDashboard();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState<null | "publish" | "regenerate">(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const published = isPublished(r);
+  const unhappy = r.rating <= 3;
+  const highlight = !published && unhappy;
+
+  const run = async (kind: "publish" | "regenerate", fn: () => Promise<string | null>) => {
+    setBusy(kind);
+    setError(null);
+    const problem = await fn();
+    setBusy(null);
+    if (problem) setError(problem);
+    else setEditing(false);
+  };
+
+  const btn =
+    "rounded-full px-4 py-2 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+  const primary = `${btn} bg-fog font-medium text-ink hover:bg-white`;
+  const secondary = `${btn} border border-white/15 text-fog hover:bg-white/5`;
+
+  return (
+    <tr className={`block p-5 align-top md:table-row md:p-0 ${highlight ? "bg-star/[0.05]" : ""}`}>
+      <td
+        className={`block md:table-cell md:w-44 md:px-6 md:py-5 ${
+          highlight ? "md:shadow-[inset_3px_0_0_var(--color-star)]" : ""
+        }`}
+      >
+        <span className="block font-medium">{r.reviewer_name}</span>
+        <span className="mt-1.5 block">
+          <Stars count={r.rating} size={13} />
+        </span>
+        <span className="mt-1.5 block text-[12px] text-mist">
+          {dateFormat.format(new Date(r.created_at))}
+        </span>
+      </td>
+      <td className="block pt-4 md:table-cell md:px-4 md:py-5">
+        <p className="max-w-[58ch] leading-relaxed text-fog">
+          {r.review_text || <span className="text-mist">Rating only, no text.</span>}
+        </p>
+        {editing ? (
+          <div className="mt-3 max-w-[58ch]">
+            <label htmlFor={`edit-${r.id}`} className="sr-only">
+              Edit reply to {r.reviewer_name}
+            </label>
+            <textarea
+              id={`edit-${r.id}`}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={4}
+              className="w-full rounded-xl border border-white/15 bg-ink/60 p-3 leading-relaxed text-fog outline-none focus:border-ice/60"
+            />
+          </div>
+        ) : (
+          <p className="mt-3 max-w-[58ch] border-l border-white/15 pl-3 leading-relaxed text-mist">
+            {busy === "regenerate"
+              ? "Nova is writing a new draft…"
+              : r.ai_reply || "No draft yet."}
+          </p>
+        )}
+        {(error || r.publish_error) && (
+          <p role="alert" className="mt-3 max-w-[58ch] text-[13px] text-star">
+            {error || r.publish_error}
+          </p>
+        )}
+      </td>
+      <td className="block pt-4 md:table-cell md:w-44 md:px-4 md:py-5">
+        <StatusChip review={r} />
+        <span className="mt-2 block text-[12px] text-ghost">
+          {r.posted_to_google_at
+            ? "Posted on Google"
+            : r.google_review_name
+              ? "From Google"
+              : "Test review"}
+        </span>
+      </td>
+      <td className="block pt-4 md:table-cell md:w-56 md:px-6 md:py-5">
+        <div className="flex flex-wrap gap-2 md:flex-col md:items-end">
+          {editing ? (
+            <>
+              <button
+                type="button"
+                onClick={() => run("publish", () => publish(r.id, draft.trim()))}
+                disabled={draft.trim() === "" || busy !== null}
+                className={primary}
+              >
+                {busy === "publish" ? "Publishing…" : published ? "Update reply" : "Approve & publish"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className={`${btn} text-mist hover:text-fog`}
+              >
+                Cancel
+              </button>
+            </>
+          ) : !published ? (
+            <>
+              <button
+                type="button"
+                onClick={() => run("publish", () => publish(r.id))}
+                disabled={!r.ai_reply || busy !== null}
+                className={primary}
+              >
+                {busy === "publish" ? "Publishing…" : "Approve & publish"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(r.ai_reply ?? "");
+                  setEditing(true);
+                }}
+                disabled={busy !== null}
+                className={secondary}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => run("regenerate", () => regenerate(r.id))}
+                disabled={busy !== null || !canGenerate}
+                title={canGenerate ? undefined : "No AI replies left on your plan"}
+                className={secondary}
+              >
+                {busy === "regenerate" ? "Writing…" : r.ai_reply ? "Regenerate" : "Write draft"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(r.ai_reply ?? "");
+                setEditing(true);
+              }}
+              className={secondary}
+            >
+              Edit reply
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function Figure({ label, value, suffix }: { label: string; value: string; suffix?: React.ReactNode }) {
   return (
     <div className="px-1 py-6 md:px-6 md:first:pl-1">
       <dt className="text-[13px] text-mist">{label}</dt>
@@ -387,17 +436,17 @@ function StarGlyph({ small = false }: { small?: boolean }) {
   );
 }
 
-function StatusChip({ published }: { published: boolean }) {
+function StatusChip({ review: r }: { review: Review }) {
+  const published = isPublished(r);
+  const label = !published ? "Needs approval" : r.auto_published ? "Auto-published" : "Approved";
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] ${
         published ? "bg-ice/15 text-ice" : "bg-star/15 text-star"
       }`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${published ? "bg-ice" : "bg-star"}`}
-      />
-      {published ? "Published" : "Waiting for you"}
+      <span className={`h-1.5 w-1.5 rounded-full ${published ? "bg-ice" : "bg-star"}`} />
+      {label}
     </span>
   );
 }
