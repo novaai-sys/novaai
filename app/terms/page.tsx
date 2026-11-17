@@ -154,9 +154,10 @@ export default function TermsPage() {
 
           <Section id="cancellation" title="Cancellation">
             <p>
-              You can cancel at any time by emailing <Mail /> from the email
-              address of your Nova AI account. The Billing page in your
-              dashboard explains the same steps.
+              You can cancel at any time from the Billing page in your
+              dashboard (&ldquo;Manage subscription&rdquo; opens the Paddle
+              customer portal), or by emailing <Mail /> from the email address
+              of your Nova AI account.
             </p>
             <List>
               <li>There is no cancellation fee.</li>
@@ -165,8 +166,13 @@ export default function TermsPage() {
                 already paid for, and is not renewed after that.
               </li>
               <li>
-                If you think you were charged in error, write to <Mail /> and
-                we will look into it.
+                You can get a full refund within 14 days of your initial
+                purchase. After that, no partial refunds are given for unused
+                time. Details are in our{" "}
+                <Link href="/refund" className={link}>
+                  Refund Policy
+                </Link>
+                .
               </li>
             </List>
           </Section>
