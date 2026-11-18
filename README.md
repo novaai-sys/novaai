@@ -26,6 +26,8 @@ Run these in the Supabase SQL editor, in this order. Each is safe to run again.
 4. [`supabase/migrations/20261117180000_billing_google_reviews.sql`](supabase/migrations/20261117180000_billing_google_reviews.sql):
    Paddle billing columns, `google_connections`, `locations`, review routing
    columns, and the final `increment_credits_used()`.
+5. [`supabase/migrations/20261118200000_api_keys.sql`](supabase/migrations/20261118200000_api_keys.sql):
+   API keys for the integrations API, and review source / external ID.
 
 Then in Supabase > Authentication > Email, decide whether "Confirm email" is
 on. With it on, new users confirm by email before they can log in.
@@ -87,6 +89,24 @@ regenerate), `POST /api/reviews/:id/publish`, `POST /api/reviews/sync`.
 - "Check for new reviews" on the Locations page calls `/api/reviews/sync`,
   which imports unanswered reviews and runs them through the pipeline.
   Publishing posts the reply with the v4 `reviews.updateReply` endpoint.
+
+### Integrations API (Make.com, Zapier, scripts)
+
+`POST /api/v1/reviews/reply`, authenticated with an account API key
+(`Authorization: Bearer nova_sk_...` or `X-API-Key: nova_sk_...`). Keys are
+created and revoked in the dashboard under Integrations; only a SHA-256 hash
+is stored.
+
+Body: `review` (text, may be empty), `rating` (1–5 or `"ONE"`..`"FIVE"`),
+`author` (optional), `review_id` (optional, makes retries free and
+duplicate-safe).
+
+Response: `{ reply, should_post, status, rating, nova_review_id, duplicate, credits }`.
+`should_post` is true only for 4–5 stars with Autopilot on; 1–3 stars always
+wait in the dashboard. Errors: `{ error, code }` with 401 `invalid_api_key`,
+400 `invalid_input`, 402 `trial_ended` / `no_credits`, 502 `ai_error`.
+
+Requires `supabase/migrations/20261118200000_api_keys.sql`.
 
 ## Not built yet
 

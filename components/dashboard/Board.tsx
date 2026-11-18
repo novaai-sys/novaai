@@ -337,7 +337,9 @@ function ReviewRow({ review: r, canGenerate }: { review: Review; canGenerate: bo
             ? "Posted on Google"
             : r.google_review_name
               ? "From Google"
-              : "Test review"}
+              : r.source === "api"
+                ? "Via API"
+                : "Test review"}
         </span>
       </td>
       <td className="block pt-4 md:table-cell md:w-56 md:px-6 md:py-5">

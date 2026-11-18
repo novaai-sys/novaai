@@ -17,6 +17,9 @@ export type Review = {
   published_at?: string | null;
   posted_to_google_at?: string | null;
   publish_error?: string | null;
+  /** 'dashboard' | 'google' | 'api' */
+  source?: string;
+  external_id?: string | null;
 };
 
 export type BusinessSettings = {

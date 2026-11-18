@@ -13,6 +13,7 @@ const nav = [
   { href: "/dashboard/autopilot", label: "Autopilot" },
   { href: "/dashboard/tone", label: "Tone of voice" },
   { href: "/dashboard/locations", label: "Locations" },
+  { href: "/dashboard/integrations", label: "Integrations" },
   { href: "/dashboard/billing", label: "Billing" },
 ];
 

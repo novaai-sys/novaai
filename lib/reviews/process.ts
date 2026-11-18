@@ -44,12 +44,22 @@ export type ReviewInput = {
   locationId?: string | null;
   googleReviewName?: string | null;
   createdAt?: string;
+  /** Set for reviews sent through the public API. */
+  source?: "api";
+  /** The caller's own ID for the review, used to avoid duplicates. */
+  externalId?: string | null;
 };
 
 type Ctx = {
-  /** Supabase client acting as the signed-in user (row level security applies). */
+  /**
+   * Supabase client. Normally it acts as the signed-in user, so row level
+   * security applies. For API-key calls it is the service-role client and
+   * every query below filters by userId explicitly.
+   */
   supabase: SupabaseClient;
   userId: string;
+  /** true when called with an API key (no user session). */
+  service?: boolean;
 };
 
 /** Plan and usage, or a clear error if the SQL has not been run. */
@@ -134,7 +144,9 @@ async function generateCounted(ctx: Ctx, usage: Usage, input: ReviewInput) {
     throw new PipelineError(e instanceof Error ? e.message : "OpenAI request failed.", 502);
   }
 
-  const { data: counted, error } = await ctx.supabase.rpc("increment_credits_used");
+  const { data: counted, error } = ctx.service
+    ? await ctx.supabase.rpc("increment_credits_for_user", { p_user_id: ctx.userId })
+    : await ctx.supabase.rpc("increment_credits_used");
   if (error) {
     throw new PipelineError(
       "The reply could not be counted, so it was not saved. Run the SQL files in supabase/ and try again.",
@@ -180,8 +192,16 @@ export async function postToGoogle(
   }
 }
 
-/** A new review: generate, route by stars, save. Returns the saved row. */
-export async function processNewReview(ctx: Ctx, input: ReviewInput) {
+/**
+ * A new review: generate, route by stars, save. Returns the saved row.
+ * `postToGoogle: false` leaves posting to the caller (e.g. Make.com posts
+ * the reply itself); the routing rule still decides the status.
+ */
+export async function processNewReview(
+  ctx: Ctx,
+  input: ReviewInput,
+  options: { postToGoogle?: boolean } = {},
+) {
   const usage = await loadUsage(ctx);
   const { reply, usage: after } = await generateCounted(ctx, usage, input);
 
@@ -192,7 +212,7 @@ export async function processNewReview(ctx: Ctx, input: ReviewInput) {
   let postedAt: string | null = null;
   let publishError: string | null = null;
 
-  if (auto) {
+  if (auto && options.postToGoogle !== false) {
     const posted = await postToGoogle(ctx.userId, input.googleReviewName, reply);
     postedAt = posted.postedAt;
     publishError = posted.error;
@@ -217,6 +237,9 @@ export async function processNewReview(ctx: Ctx, input: ReviewInput) {
       location_id: input.locationId ?? null,
       google_review_name: input.googleReviewName ?? null,
       ...(input.createdAt ? { created_at: input.createdAt } : {}),
+      // Only written for API calls, so older databases without these
+      // columns keep working for everything else.
+      ...(input.source ? { source: input.source, external_id: input.externalId ?? null } : {}),
     })
     .select()
     .limit(1);
