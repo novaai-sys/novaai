@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import PageShell from "@/components/dashboard/PageShell";
+import GoogleConnectCard, { GoogleMark } from "@/components/dashboard/GoogleConnectCard";
 import { useDashboard } from "@/components/dashboard/Store";
 import { createClient } from "@/lib/supabase/client";
 import { formatDay } from "@/lib/usage";
@@ -62,7 +64,7 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
 }
 
 export default function IntegrationsPage() {
-  const { user } = useDashboard();
+  const { user, google, locations, refresh } = useDashboard();
   const [keys, setKeys] = useState<ApiKey[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("Make.com");
@@ -86,7 +88,8 @@ export default function IntegrationsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEndpoint(`${window.location.origin}/api/v1/reviews/reply`);
     void load();
-  }, [load]);
+    void refresh();
+  }, [load, refresh]);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,9 +127,46 @@ export default function IntegrationsPage() {
   return (
     <PageShell
       title="Integrations"
-      summary="Generate replies from Make.com, Zapier or your own scripts with an API key. Replies follow your tone of voice, your plan and your Autopilot setting."
+      summary="Connect your Google Business Profile and Nova replies to your reviews automatically. Nothing else to set up."
     >
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      {google && google.status !== "needs_reconnect" ? (
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-ice/25 bg-panel/70 p-6 md:p-7">
+          <div>
+            <h2 className="flex items-center gap-3 text-[17px] font-medium">
+              <GoogleMark /> Google Business Profile
+            </h2>
+            <p className="mt-2 text-[14px] text-mist">
+              Connected{google.google_email ? ` as ${google.google_email}` : ""}.{" "}
+              {locations.length} {locations.length === 1 ? "location" : "locations"}, synced every 15 minutes.
+            </p>
+          </div>
+          <Link href="/dashboard/locations" className={primary}>
+            Manage locations
+          </Link>
+        </section>
+      ) : (
+        <GoogleConnectCard />
+      )}
+
+      <details className="group mt-8 rounded-card border border-white/10 bg-panel/40">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-6 md:p-7 [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="block text-[17px] font-medium">Developer API / Make.com</span>
+            <span className="mt-1 block text-[14px] text-mist">
+              Optional. For developers who want to generate replies from Make.com, Zapier or
+              their own code.
+            </span>
+          </span>
+          <span
+            aria-hidden="true"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/15 text-mist transition-transform duration-300 group-open:rotate-180"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12">
+              <path d="M3 4.5 6 7.5l3-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </summary>
+      <div className="faq-answer grid gap-6 border-t border-white/10 p-6 md:p-7 lg:grid-cols-[1.1fr_1fr]">
         <section className="rounded-card border border-white/10 bg-panel/70 p-6 md:p-7">
           <h2 className="text-[17px] font-medium">API keys</h2>
           <p className="mt-1 text-[14px] text-mist">
@@ -257,6 +297,7 @@ export default function IntegrationsPage() {
           </p>
         </section>
       </div>
+      </details>
     </PageShell>
   );
 }

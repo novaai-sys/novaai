@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import PageShell from "@/components/dashboard/PageShell";
 import Switch from "@/components/dashboard/Switch";
+import GoogleConnectCard, { CONNECT_URL, GoogleMark } from "@/components/dashboard/GoogleConnectCard";
 import { useDashboard } from "@/components/dashboard/Store";
 import { formatDay } from "@/lib/usage";
+import { timeAgo } from "@/lib/time";
 
 const field =
   "mt-4 w-full rounded-xl border border-white/15 bg-ink/60 px-4 py-3 text-[15px] text-fog outline-none placeholder:text-ghost focus:border-ice/60";
 const primary =
   "inline-block rounded-full bg-fog px-5 py-2.5 text-[14px] font-medium text-ink transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40";
 const secondary =
-  "inline-block rounded-full border border-white/15 px-5 py-2.5 text-[14px] text-fog transition-colors hover:bg-white/5 disabled:opacity-40";
+  "inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-2.5 text-[14px] text-fog transition-colors hover:bg-white/5 disabled:opacity-40";
+
+type Notice = { tone: "ok" | "error"; text: string };
 
 /** What the Google callback reports through ?google=... */
-function googleMessage(code: string, limit: number): { tone: "ok" | "error"; text: string } | null {
+function googleMessage(code: string, limit: number): Notice | null {
   if (code.startsWith("connected_limit_")) {
     const n = Number(code.slice("connected_limit_".length)) || 1;
     return {
@@ -22,11 +26,11 @@ function googleMessage(code: string, limit: number): { tone: "ok" | "error"; tex
       text: `Google connected. ${n} more ${n === 1 ? "location was" : "locations were"} not added because your plan allows ${limit}. Growth allows up to 5.`,
     };
   }
-  const messages: Record<string, { tone: "ok" | "error"; text: string }> = {
-    connected: { tone: "ok", text: "Google connected. Your locations are below." },
+  const messages: Record<string, Notice> = {
+    connected: { tone: "ok", text: "Google connected." },
     connected_no_access: {
       tone: "error",
-      text: "Google connected, but Google has not opened Business Profile API access for NovaAI yet, so locations could not be loaded. Connect again once access is approved.",
+      text: "Google connected, but Google has not opened Business Profile API access for NovaAI yet, so your locations could not be loaded. Connect again once access is approved.",
     },
     connected_no_locations: {
       tone: "error",
@@ -51,27 +55,80 @@ function googleMessage(code: string, limit: number): { tone: "ok" | "error"; tex
   return messages[code] ?? null;
 }
 
+type SyncJson = {
+  imported?: number;
+  generated?: number;
+  postedToGoogle?: number;
+  savedWithoutDraft?: number;
+  errors?: string[];
+  more?: boolean;
+  error?: string;
+  credits?: unknown;
+};
+
+function describeSync(json: SyncJson): Notice {
+  const parts: string[] = [];
+  if (!json.imported) parts.push("You're up to date. No new reviews without a reply.");
+  else {
+    parts.push(
+      `${json.imported} new ${json.imported === 1 ? "review" : "reviews"} imported. ${json.generated ?? 0} with an AI reply, ${json.postedToGoogle ?? 0} posted to Google.`,
+    );
+  }
+  if (json.savedWithoutDraft) {
+    parts.push(`${json.savedWithoutDraft} saved without a draft because your trial replies are used up.`);
+  }
+  if (json.more) parts.push("More reviews are waiting; the rest will sync automatically in a few minutes.");
+  if (json.errors?.length) parts.push(`Problem: ${json.errors[0]}`);
+  return { tone: json.errors?.length ? "error" : "ok", text: parts.join(" ") };
+}
+
 export default function LocationsPage() {
-  const { settings, updateSettings, google, locations, credits, setLocationAutoReply, refresh, setCredits } =
-    useDashboard();
+  const {
+    settings, updateSettings, google, locations, credits,
+    setLocationAutoReply, refresh, setCredits,
+  } = useDashboard();
   const [name, setName] = useState(settings.business_name);
   const [saved, setSaved] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState<null | "sync" | "disconnect">(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const firstSync = useRef(false);
 
   const limit = credits?.locationsLimit ?? 1;
+  const healthy = google && google.status !== "needs_reconnect";
 
+  const sync = useCallback(async () => {
+    setBusy("sync");
+    const res = await fetch("/api/reviews/sync", { method: "POST" });
+    const json: SyncJson = await res.json().catch(() => ({}));
+    setBusy(null);
+    if (json.credits) setCredits(json.credits as Parameters<typeof setCredits>[0]);
+    await refresh();
+    setNotice(res.ok ? describeSync(json) : { tone: "error", text: json.error ?? "Sync failed. Try again." });
+  }, [refresh, setCredits]);
+
+  // The background sync may have changed things since the dashboard loaded.
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  // After returning from Google: show the result, then import reviews right away.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("google");
-    if (!code) return;
+    if (!code || firstSync.current) return;
+    firstSync.current = true;
     window.history.replaceState(null, "", window.location.pathname);
-    // Shown once, after the redirect back from Google.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setNotice(googleMessage(code, limit));
-  }, [limit]);
+    const message = googleMessage(code, limit);
+    const importNow =
+      code.startsWith("connected") && code !== "connected_no_access" && code !== "connected_no_locations";
+    // One-time handoff from Google's redirect; deferred so it runs after this render.
+    queueMicrotask(() => {
+      setNotice(message);
+      if (importNow) void sync();
+    });
+  }, [limit, sync]);
 
   const saveName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,30 +137,6 @@ export default function LocationsPage() {
       return;
     }
     setSaved(await updateSettings({ business_name: name.trim() }));
-  };
-
-  const sync = async () => {
-    setBusy("sync");
-    setNotice(null);
-    const res = await fetch("/api/reviews/sync", { method: "POST" });
-    const json = await res.json().catch(() => ({}));
-    setBusy(null);
-    if (json.credits) setCredits(json.credits);
-    if (!res.ok) {
-      setNotice({ tone: "error", text: json.error ?? "Checking for reviews failed." });
-      return;
-    }
-    await refresh();
-    const parts = [
-      json.imported === 0
-        ? "No new reviews without a reply."
-        : `${json.imported} new ${json.imported === 1 ? "review" : "reviews"} imported, ${json.generated} with an AI reply.`,
-      json.skippedForLimit
-        ? `${json.skippedForLimit} saved without a draft because your trial replies are used up.`
-        : "",
-      json.errors?.length ? `Some locations failed: ${json.errors[0]}` : "",
-    ];
-    setNotice({ tone: json.errors?.length ? "error" : "ok", text: parts.filter(Boolean).join(" ") });
   };
 
   const disconnect = async () => {
@@ -121,7 +154,7 @@ export default function LocationsPage() {
   };
 
   return (
-    <PageShell title="Locations" summary="Your business and the Google Business Profile locations Nova replies for.">
+    <PageShell title="Locations" summary="Your Google Business Profile and the locations Nova replies for.">
       {notice && (
         <p
           role={notice.tone === "error" ? "alert" : "status"}
@@ -132,64 +165,59 @@ export default function LocationsPage() {
           {notice.text}
         </p>
       )}
+      {busy === "sync" && (
+        <p role="status" className="mb-6 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-[15px] text-mist">
+          Checking Google for new reviews…
+        </p>
+      )}
+
+      {!healthy && (
+        <div className="mb-6">
+          <GoogleConnectCard />
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-        <section className="rounded-card border border-white/10 bg-panel/70 p-6 md:p-7">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-[17px] font-medium">Google Business Profile</h2>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] ${
-                google ? "bg-ice/15 text-ice" : "bg-white/5 text-mist"
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${google ? "bg-ice" : "bg-mist"}`} />
-              {google ? "Connected" : "Not connected"}
-            </span>
-          </div>
-
-          {google ? (
-            <>
-              <p className="mt-3 text-[14px] leading-relaxed text-mist">
-                Connected{google.google_email ? ` as ${google.google_email}` : ""} on{" "}
-                {formatDay(google.created_at)}. Your plan allows {limit}{" "}
-                {limit === 1 ? "location" : "locations"}.
-              </p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button type="button" onClick={sync} disabled={busy !== null || locations.length === 0} className={primary}>
-                  {busy === "sync" ? "Checking…" : "Check for new reviews"}
-                </button>
-                <a href="/api/auth/google-business/connect" className={secondary}>
-                  Reconnect
-                </a>
-                {confirmDisconnect ? (
-                  <span className="flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={disconnect} disabled={busy !== null} className={secondary}>
-                      {busy === "disconnect" ? "Disconnecting…" : "Yes, disconnect"}
-                    </button>
-                    <button type="button" onClick={() => setConfirmDisconnect(false)} className="px-3 text-[14px] text-mist hover:text-fog">
-                      Keep connected
-                    </button>
-                  </span>
-                ) : (
-                  <button type="button" onClick={() => setConfirmDisconnect(true)} className="px-3 text-[14px] text-mist hover:text-fog">
-                    Disconnect
-                  </button>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="mt-3 text-[14px] leading-relaxed text-mist">
-                Sign in with the Google account that manages your Business
-                Profile. You approve access on Google&apos;s own screen, NovaAI
-                never sees your password, and you can disconnect at any time.
-              </p>
-              <a href="/api/auth/google-business/connect" className={`${primary} mt-5`}>
-                Connect Google Business Profile
+        {healthy && (
+          <section className="rounded-card border border-ice/25 bg-panel/70 p-6 md:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="flex items-center gap-3 text-[17px] font-medium">
+                <GoogleMark /> Google Business Profile
+              </h2>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-ice/15 px-2.5 py-1 text-[12px] text-ice">
+                <span className="h-1.5 w-1.5 rounded-full bg-ice" />
+                Auto-sync on
+              </span>
+            </div>
+            <p className="mt-3 text-[14px] leading-relaxed text-mist">
+              Connected{google.google_email ? ` as ${google.google_email}` : ""} since{" "}
+              {formatDay(google.created_at)}. Nova checks for new reviews every 15 minutes;
+              you can also sync now.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button type="button" onClick={sync} disabled={busy !== null || locations.length === 0} className={primary}>
+                {busy === "sync" ? "Syncing…" : "Sync now"}
+              </button>
+              <a href={CONNECT_URL} className={secondary}>
+                Reconnect
               </a>
-            </>
-          )}
-        </section>
+              {confirmDisconnect ? (
+                <span className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={disconnect} disabled={busy !== null} className={secondary}>
+                    {busy === "disconnect" ? "Disconnecting…" : "Yes, disconnect"}
+                  </button>
+                  <button type="button" onClick={() => setConfirmDisconnect(false)} className="px-3 text-[14px] text-mist hover:text-fog">
+                    Keep connected
+                  </button>
+                </span>
+              ) : (
+                <button type="button" onClick={() => setConfirmDisconnect(true)} className="px-3 text-[14px] text-mist hover:text-fog">
+                  Disconnect
+                </button>
+              )}
+            </div>
+          </section>
+        )}
 
         <form onSubmit={saveName} className="rounded-card border border-white/10 bg-panel/70 p-6 md:p-7">
           <label htmlFor="business-name" className="text-[17px] font-medium">
@@ -230,17 +258,21 @@ export default function LocationsPage() {
             Connected locations ({locations.length} of {limit})
           </h2>
           <p className="mt-1 text-[14px] text-mist">
-            Auto-reply publishes replies to 4 and 5-star reviews right away.
-            Replies to 1 to 3-star reviews always wait for your approval.
+            Auto-reply posts replies to 4 and 5-star reviews on Google right away. Replies to 1 to
+            3-star reviews always wait for your approval on the Reviews page.
           </p>
           <ul className="mt-5 divide-y divide-white/10 border-y border-white/10">
             {locations.map((l) => (
               <li key={l.id} className="flex flex-wrap items-center gap-5 py-5">
                 <div className="min-w-0 flex-1">
                   <p className="text-[17px] font-medium">{l.title || "Untitled location"}</p>
-                  <p className="mt-1 text-[14px] text-mist">
-                    {l.address ?? l.google_location_id}
-                    {l.last_synced_at ? `. Checked ${formatDay(l.last_synced_at)}` : ""}
+                  <p className="mt-1 text-[14px] text-mist">{l.address ?? l.google_location_id}</p>
+                  <p className={`mt-1 text-[13px] ${l.last_sync_error ? "text-star" : "text-ghost"}`}>
+                    {l.last_sync_error
+                      ? `Last sync failed: ${l.last_sync_error}`
+                      : l.last_synced_at
+                        ? `Synced ${timeAgo(l.last_synced_at)}${l.last_sync_new ? `, ${l.last_sync_new} new` : ""}`
+                        : "Not synced yet"}
                   </p>
                 </div>
                 <span className="text-[13px] text-mist" aria-live="polite">

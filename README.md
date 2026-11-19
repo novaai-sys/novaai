@@ -28,6 +28,9 @@ Run these in the Supabase SQL editor, in this order. Each is safe to run again.
    columns, and the final `increment_credits_used()`.
 5. [`supabase/migrations/20261118200000_api_keys.sql`](supabase/migrations/20261118200000_api_keys.sql):
    API keys for the integrations API, and review source / external ID.
+6. [`supabase/migrations/20261119120000_google_autosync.sql`](supabase/migrations/20261119120000_google_autosync.sql):
+   cached access tokens, connection status, per-location sync status and the
+   sync lock.
 
 Then in Supabase > Authentication > Email, decide whether "Confirm email" is
 on. With it on, new users confirm by email before they can log in.
@@ -81,14 +84,26 @@ regenerate), `POST /api/reviews/:id/publish`, `POST /api/reviews/sync`.
 
 ### Google Business Profile
 
-- `/api/auth/google-business/connect` → Google consent (`business.manage`,
-  offline access) → `/api/auth/google-business/callback`.
-- The refresh token is encrypted with AES-256-GCM (`lib/crypto.ts`) and stored
-  in `google_connections`. The browser can read every column except the token.
+- `/api/auth/google-business` → Google consent (`business.manage`, offline
+  access, `prompt=consent`) → `/api/auth/google-business/callback`.
+- The refresh token and the current access token are encrypted with
+  AES-256-GCM (`lib/crypto.ts`) and stored in `google_connections`, with the
+  token expiry and account IDs. The browser can read neither token column.
 - The callback imports locations up to the plan's limit.
-- "Check for new reviews" on the Locations page calls `/api/reviews/sync`,
-  which imports unanswered reviews and runs them through the pipeline.
-  Publishing posts the reply with the v4 `reviews.updateReply` endpoint.
+- `lib/google/tokens.ts` reuses the access token until a minute before it
+  expires, then refreshes it. If Google answers `invalid_grant` (access
+  revoked), the connection is marked `needs_reconnect` and the dashboard asks
+  the owner to reconnect.
+- `lib/reviews/sync.ts` is the sync engine. For each location it takes a lock
+  (`claim_location_sync`), lists reviews, skips answered and already-imported
+  ones, and runs the rest through the pipeline. 4–5★ with Autopilot on are
+  posted to Google straight away; the rest wait as drafts.
+- Callers: "Sync now" on the Locations page (`POST /api/reviews/sync`, the
+  owner's locations) and the cron route `/api/cron/sync-reviews` (all active
+  connections, `Authorization: Bearer $CRON_SECRET`).
+- `netlify/functions/sync-reviews.mts` is a Netlify scheduled function that
+  calls the cron route every 15 minutes, and again (up to 3 times) while the
+  response says `more: true`.
 
 ### Integrations API (Make.com, Zapier, scripts)
 
@@ -110,9 +125,6 @@ Requires `supabase/migrations/20261118200000_api_keys.sql`.
 
 ## Not built yet
 
-- Automatic background sync. Reviews are fetched when the owner presses
-  "Check for new reviews". A scheduled job needs a server-side version of the
-  sync that does not rely on the user's session.
 - Alert emails. `alert_email` is stored only.
 - Google calls are written against Google's documentation but untested with a
   live project: Business Profile API access must be approved by Google first.

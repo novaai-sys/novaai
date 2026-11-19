@@ -104,12 +104,12 @@ export function DashboardStore({
       supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).limit(1),
       supabase
         .from("locations")
-        .select("id, title, address, google_location_id, auto_reply_enabled, last_synced_at")
+        .select("*")
         .eq("user_id", user.id)
         .order("created_at"),
       supabase
         .from("google_connections")
-        .select("google_email, created_at")
+        .select("google_email, created_at, status, last_error")
         .eq("user_id", user.id)
         .limit(1),
     ]);

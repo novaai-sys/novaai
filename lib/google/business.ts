@@ -72,6 +72,7 @@ async function tokenRequest(params: Record<string, string>) {
     throw new GoogleError(
       `Google token request failed: ${json.error_description ?? json.error ?? res.status}`,
       res.status,
+      typeof json.error === "string" ? json.error : undefined,
     );
   }
   return json as TokenResponse;
@@ -113,18 +114,20 @@ export class GoogleError extends Error {
   constructor(
     message: string,
     public status: number,
+    /** OAuth error code, e.g. "invalid_grant" when access was removed. */
+    public code?: string,
   ) {
     super(message);
   }
 }
 
-/** A short-lived access token from a stored, encrypted refresh token. */
-export async function accessTokenFor(refreshTokenEncrypted: string) {
+/** A new access token (and its lifetime) from a stored, encrypted refresh token. */
+export async function refreshAccessToken(refreshTokenEncrypted: string) {
   const token = await tokenRequest({
     refresh_token: decrypt(refreshTokenEncrypted),
     grant_type: "refresh_token",
   });
-  return token.access_token;
+  return { accessToken: token.access_token, expiresIn: token.expires_in ?? 3600 };
 }
 
 async function api<T>(accessToken: string, href: string, init?: RequestInit): Promise<T> {
