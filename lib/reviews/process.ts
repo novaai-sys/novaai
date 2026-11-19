@@ -1,7 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { accessTokenFor, putReply } from "@/lib/google/business";
+import { putReply } from "@/lib/google/business";
+import { connectionForUser, withGoogleToken } from "@/lib/google/tokens";
 import { toneInstruction } from "@/lib/tones";
 import { PROFILE_COLUMNS, toUsage, type Usage } from "@/lib/usage";
 
@@ -173,16 +174,11 @@ export async function postToGoogle(
   if (!googleReviewName) return { postedAt: null, error: null };
   try {
     const db = createAdminClient();
-    const { data } = await db
-      .from("google_connections")
-      .select("refresh_token_encrypted")
-      .eq("user_id", userId)
-      .limit(1);
-    const stored = data?.[0]?.refresh_token_encrypted;
-    if (!stored) {
+    const conn = await connectionForUser(db, userId);
+    if (!conn) {
       return { postedAt: null, error: "Google is not connected. Reconnect it on the Locations page." };
     }
-    await putReply(await accessTokenFor(stored), googleReviewName, reply);
+    await withGoogleToken(db, conn, (token) => putReply(token, googleReviewName, reply));
     return { postedAt: new Date().toISOString(), error: null };
   } catch (e) {
     return {

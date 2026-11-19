@@ -74,6 +74,10 @@ export async function GET(request: NextRequest) {
         user_id: user.id,
         google_email: emailFromIdToken(tokens.id_token),
         refresh_token_encrypted: encrypt(tokens.refresh_token),
+        access_token_encrypted: encrypt(tokens.access_token),
+        token_expires_at: new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString(),
+        status: "active",
+        last_error: null,
         scope: tokens.scope,
         updated_at: new Date().toISOString(),
       },
@@ -94,6 +98,12 @@ export async function GET(request: NextRequest) {
     console.warn("[google] connected, but locations could not be listed:", e);
     return done("connected_no_access");
   }
+  // Remember which Google accounts this connection covers.
+  await db
+    .from("google_connections")
+    .update({ account_ids: [...new Set(found.map((l) => l.accountId))] })
+    .eq("id", conn[0].id);
+
   if (found.length === 0) return done("connected_no_locations");
 
   const [{ data: profileRows }, { data: existing }, { data: settingsRows }] =

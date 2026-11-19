@@ -37,9 +37,14 @@ export type Location = {
   google_location_id: string;
   auto_reply_enabled: boolean;
   last_synced_at: string | null;
+  last_sync_error?: string | null;
+  last_sync_new?: number;
 };
 
 export type GoogleConnection = {
   google_email: string | null;
   created_at: string;
+  /** 'active' | 'needs_reconnect' */
+  status?: string;
+  last_error?: string | null;
 };

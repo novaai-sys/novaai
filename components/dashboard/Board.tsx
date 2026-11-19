@@ -6,6 +6,7 @@ import Switch from "./Switch";
 import TestReviewForm from "./TestReviewForm";
 import CreditsBadge, { UpgradeNotice } from "./CreditsBadge";
 import UpgradeBanner from "./UpgradeBanner";
+import GoogleConnectCard from "./GoogleConnectCard";
 import { ruleRows } from "./rules";
 import { isPublished, needsApproval, useDashboard } from "./Store";
 import type { Review } from "@/lib/types";
@@ -88,6 +89,10 @@ export default function Board() {
       </header>
 
       <UpgradeBanner />
+
+      <div className="mt-8 empty:hidden">
+        <GoogleConnectCard />
+      </div>
 
       <div id="upgrade-notice">
         <UpgradeNotice />
@@ -253,7 +258,7 @@ export default function Board() {
         </div>
         <p className="mt-4 text-[13px] text-ghost">
           Replies to 1 to 3-star reviews always wait for your approval. Test
-          reviews are never posted to Google.
+          reviews are never posted to Google. Google reviews sync every 15 minutes.
         </p>
       </section>
     </div>
