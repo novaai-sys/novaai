@@ -2,22 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
-import { plans } from "@/lib/plans";
+import { TRIAL_DAYS, dispatcherPlans } from "@/lib/dispatcher/plans";
 
 export const metadata: Metadata = {
   title: "Terms of Service | NovaAI",
   description:
-    "The terms for using Nova AI: the 7-day free trial, the Starter and Growth subscriptions, billing, cancellation and your responsibilities.",
+    "The terms for using NovaAI: the 14-day free trial, the Starter and Pro subscriptions, billing, cancellation, call recording and your responsibilities.",
 };
 
 const SUPPORT = "support@getnovaai.app";
-const LAST_UPDATED = "November 17, 2026";
+const LAST_UPDATED = "November 21, 2026";
 
 const link =
   "text-fog underline decoration-white/30 underline-offset-4 hover:decoration-white";
 
-const starter = plans.find((p) => p.id === "starter")!;
-const growth = plans.find((p) => p.id === "growth")!;
+const starter = dispatcherPlans.find((p) => p.id === "starter")!;
+const pro = dispatcherPlans.find((p) => p.id === "pro")!;
 
 function Section({
   id,
@@ -77,54 +77,63 @@ export default function TermsPage() {
         >
           <Section id="service" title="The service">
             <p>
-              Nova AI writes suggested replies to the customer reviews of your
-              business with artificial intelligence. You can read, edit and
-              approve each reply in your dashboard, or turn on Autopilot to
-              publish replies to 4 and 5-star reviews without asking you.
-              Replies to 1 to 3-star reviews always wait for your approval.
+              NovaAI answers phone calls for home service businesses with an
+              AI dispatcher called Jessica. Calls you forward to your NovaAI
+              number are answered by Jessica, who uses the information you
+              give us (your services, prices, service area, hours and fees)
+              to answer questions, take job requests and book visits. After
+              each call we send you the job details, and keep a recording and
+              a transcript of the call.
+            </p>
+            <p>
+              Jessica is an AI system. She can misunderstand a caller or make
+              mistakes, so check the job details you receive before you send
+              a technician.
             </p>
           </Section>
 
           <Section id="trial" title="Free trial">
             <List>
               <li>
-                Every new account starts with a 7-day free trial. No credit
-                card is required.
+                Every new customer can try NovaAI free for {TRIAL_DAYS} days.
+                No credit card is required.
               </li>
               <li>
-                The trial includes up to 10 AI-generated replies. It ends after
-                7 days or after 10 replies, whichever comes first.
-              </li>
-              <li>
-                When the trial ends, you can keep reading, editing and
-                publishing the replies you already have. To generate new
-                replies, choose a paid plan.
+                During the trial, Jessica answers the calls you forward to your
+                NovaAI number, up to 150 calls.
               </li>
               <li>
                 The trial never turns into a paid plan on its own. You are only
-                charged if you choose one.
+                charged if you choose one. If you don&apos;t, we stop
+                answering calls on your NovaAI number at the end of the trial.
               </li>
             </List>
           </Section>
 
           <Section id="plans" title="Paid plans">
-            <p>Nova AI offers two subscriptions, billed in US dollars:</p>
+            <p>NovaAI offers two subscriptions, billed in US dollars:</p>
             <List>
               <li>
                 <strong className="font-medium text-fog">Starter:</strong> $
                 {starter.price.monthly} per month billed monthly, or $
                 {starter.price.annual} per month billed annually ($
-                {starter.price.annual * 12} per year). 1 location and
-                unlimited AI replies.
+                {(starter.price.annual * 12).toLocaleString("en-US")} per year).
+                Up to 150 answered calls a month.
               </li>
               <li>
-                <strong className="font-medium text-fog">Growth:</strong> $
-                {growth.price.monthly} per month billed monthly, or $
-                {growth.price.annual} per month billed annually ($
-                {growth.price.annual * 12} per year). Up to 5 locations and
-                unlimited AI replies.
+                <strong className="font-medium text-fog">Pro:</strong> $
+                {pro.price.monthly} per month billed monthly, or $
+                {pro.price.annual} per month billed annually ($
+                {(pro.price.annual * 12).toLocaleString("en-US")} per year).
+                Up to 400 answered calls a month.
               </li>
             </List>
+            <p>
+              If you go over your plan&apos;s calls in a month, Jessica keeps
+              answering. We will tell you, and if it happens two months in a
+              row we will suggest the plan that fits. We never charge for
+              extra calls without your agreement.
+            </p>
             <p>
               The full list of what each plan includes is on the{" "}
               <Link href="/pricing" className={link}>
@@ -180,17 +189,28 @@ export default function TermsPage() {
           <Section id="your-responsibilities" title="Your responsibilities">
             <List>
               <li>
-                You are responsible for the replies published on your
-                Business Profile, including those published by Autopilot.
-                Read AI-generated replies before you approve them.
+                Give us accurate information about your business, and tell us
+                when your prices, service area, hours or fees change.
               </li>
               <li>
-                Only connect Google Business Profile locations you own or are
-                authorized to manage.
+                Calls are recorded, and Jessica tells callers that the call may
+                be recorded. You are responsible for any further notice or
+                consent the law requires where you operate.
               </li>
               <li>
-                Do not use Nova AI to publish misleading, abusive or unlawful
-                content, or in a way that breaks Google&apos;s policies.
+                Only forward phone numbers you own or are authorized to use,
+                and don&apos;t use NovaAI to make unsolicited calls.
+              </li>
+              <li>
+                Jessica gives callers basic safety steps (for example, to leave
+                the house and call 911 when they smell gas). She is not an
+                emergency service, and you remain responsible for the work you
+                agree to do.
+              </li>
+              <li>
+                If you also use NovaAI&apos;s Google review replies, you are
+                responsible for the replies published on your Business
+                Profile, and should only connect locations you manage.
               </li>
               <li>Keep your login details private.</li>
             </List>
@@ -217,9 +237,9 @@ export default function TermsPage() {
 
           <Section id="liability" title="Availability and liability">
             <p>
-              We work to keep Nova AI available and accurate, but the service
-              is provided as it is, and AI-generated replies can contain
-              mistakes. To the extent the law allows, Nova AI is not liable for
+              We work to keep NovaAI available and accurate, but the service
+              is provided as it is: calls can drop, and AI-generated answers,
+              summaries and replies can contain mistakes. To the extent the law allows, NovaAI is not liable for
               indirect losses arising from the use of the service, and our
               total liability is limited to the amount you paid us in the 12
               months before the claim.

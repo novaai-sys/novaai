@@ -1,11 +1,12 @@
-import Link from "next/link";
-import HeroDuet from "./HeroDuet";
+import JobText from "./JobText";
+import TalkToJessica from "./TalkToJessica";
+import { TRIAL_DAYS } from "@/lib/dispatcher/plans";
 
 const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;
 
 export default function Hero() {
   return (
-    <section className="relative px-5 pb-20 pt-32 md:px-8 md:pt-40">
+    <section className="relative overflow-x-clip px-5 pb-20 pt-32 md:px-8 md:pt-40">
       {/* Orb: outer div centres it, .orb drifts, rim turns, core breathes. */}
       <div
         aria-hidden="true"
@@ -18,45 +19,45 @@ export default function Hero() {
       </div>
 
       <div className="relative mx-auto max-w-[1400px]">
-        <h1 className="text-center text-display font-medium">
+        <p
+          className="rise text-center text-[15px] text-ice"
+          style={d(0.05)}
+        >
+          AI dispatcher for HVAC and plumbing shops
+        </p>
+        <h1 className="mt-5 text-center text-display font-medium">
           <span className="line-mask" style={d(0.15)}>
-            <span>Every review answered.</span>
+            <span>Every call answered.</span>
           </span>{" "}
           <span className="line-mask text-ghost" style={d(0.3)}>
-            <span>While you run the shop.</span>
+            <span>Even from under a sink.</span>
           </span>
         </h1>
 
         <p
-          className="rise mx-auto mt-7 max-w-[46ch] text-balance text-center text-[17px] leading-relaxed text-mist"
+          className="rise mx-auto mt-7 max-w-[50ch] text-balance text-center text-[17px] leading-relaxed text-mist"
           style={d(0.55)}
         >
-          NovaAI watches your Google Business Profile and replies in your
-          tone. Happy reviews go out on their own. Unhappy ones wait for you.
+          Jessica picks up the calls you can&apos;t, day or night. She books
+          the job, handles emergencies safely and texts you the details, so
+          the homeowner doesn&apos;t call the next company on Google.
         </p>
 
         <div className="rise mt-9" style={d(0.7)}>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/signup"
-              className="rounded-full bg-fog px-6 py-3 text-[15px] font-medium text-ink transition-colors hover:bg-white"
-            >
-              Start free
-            </Link>
+          <TalkToJessica />
+          <p className="mt-5 text-center text-[14px] text-mist">
+            or{" "}
             <a
-              href="#how"
-              className="rounded-full border border-white/15 px-6 py-3 text-[15px] text-fog transition-colors hover:bg-white/5"
+              href="#trial"
+              className="text-fog underline decoration-white/30 underline-offset-4 hover:decoration-white"
             >
-              See how it works
+              start a {TRIAL_DAYS}-day free trial
             </a>
-          </div>
-          <p className="mt-4 text-center text-[14px] text-mist">
-            <span className="text-fog">7-day free trial.</span> No credit card
-            required.
+            . We set it up for you. No credit card.
           </p>
         </div>
 
-        <HeroDuet />
+        <JobText />
       </div>
     </section>
   );

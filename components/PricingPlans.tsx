@@ -1,8 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { planHref, plans, type Billing, type Plan } from "@/lib/plans";
+import {
+  dispatcherPlans,
+  trialHref,
+  type DispatcherBilling,
+  type DispatcherPlan,
+} from "@/lib/dispatcher/plans";
 
 const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;
 
@@ -11,7 +15,7 @@ const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;
  * page and on /pricing.
  */
 export default function PricingPlans() {
-  const [billing, setBilling] = useState<Billing>("monthly");
+  const [billing, setBilling] = useState<DispatcherBilling>("monthly");
 
   return (
     <div>
@@ -21,22 +25,14 @@ export default function PricingPlans() {
           aria-label="Billing period"
           className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1"
         >
-          <PeriodButton
-            active={billing === "monthly"}
-            onClick={() => setBilling("monthly")}
-          >
+          <PeriodButton active={billing === "monthly"} onClick={() => setBilling("monthly")}>
             Monthly
           </PeriodButton>
-          <PeriodButton
-            active={billing === "annual"}
-            onClick={() => setBilling("annual")}
-          >
+          <PeriodButton active={billing === "annual"} onClick={() => setBilling("annual")}>
             Annual
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                billing === "annual"
-                  ? "bg-ice/25 text-ink"
-                  : "bg-ice/15 text-ice"
+                billing === "annual" ? "bg-ice/25 text-ink" : "bg-ice/15 text-ice"
               }`}
             >
               Save 20%
@@ -46,7 +42,7 @@ export default function PricingPlans() {
       </div>
 
       <ul className="mt-12 grid gap-5 lg:grid-cols-3 lg:items-stretch lg:gap-6">
-        {plans.map((plan, i) => (
+        {dispatcherPlans.map((plan, i) => (
           <PlanCard key={plan.id} plan={plan} billing={billing} delay={i * 0.1} />
         ))}
       </ul>
@@ -83,19 +79,18 @@ function PlanCard({
   billing,
   delay,
 }: {
-  plan: Plan;
-  billing: Billing;
+  plan: DispatcherPlan;
+  billing: DispatcherBilling;
   delay: number;
 }) {
   const price = plan.price[billing];
   const paid = plan.price.monthly > 0;
-  const href = planHref(plan, billing);
 
   const note = !paid
-    ? "No credit card required"
+    ? "Then choose a plan, or walk away"
     : billing === "annual"
-      ? `Billed $${price * 12} yearly`
-      : "Billed monthly";
+      ? `Billed $${(price * 12).toLocaleString("en-US")} yearly, after your free trial`
+      : "Billed monthly, after your free trial";
 
   const button = `mt-auto block rounded-full px-6 py-3 text-center text-[15px] font-medium transition-colors ${
     plan.popular
@@ -107,9 +102,7 @@ function PlanCard({
     <li
       style={d(delay)}
       className={`rise relative flex flex-col overflow-hidden rounded-card border p-7 md:p-8 ${
-        plan.popular
-          ? "border-ice/40 bg-panel lg:-my-3 lg:py-11"
-          : "border-white/10 bg-panel/70"
+        plan.popular ? "border-ice/40 bg-panel lg:-my-3 lg:py-11" : "border-white/10 bg-panel/70"
       }`}
     >
       {plan.popular && (
@@ -124,13 +117,11 @@ function PlanCard({
           <h3 className="text-[19px] font-medium">{plan.name}</h3>
           {plan.popular && (
             <span className="rounded-full bg-ice/15 px-3 py-1 text-[13px] text-ice">
-              Most Popular
+              Most shops pick this
             </span>
           )}
         </div>
-        <p className="mt-2 min-h-[3em] text-[15px] leading-relaxed text-mist">
-          {plan.tagline}
-        </p>
+        <p className="mt-2 min-h-[3em] text-[15px] leading-relaxed text-mist">{plan.tagline}</p>
 
         <p className="mt-6 flex items-baseline gap-2">
           <span
@@ -139,9 +130,7 @@ function PlanCard({
           >
             ${price}
           </span>
-          <span className="text-[15px] text-mist">
-            {paid ? "/month" : ""}
-          </span>
+          <span className="text-[15px] text-mist">{paid ? "/month" : ""}</span>
         </p>
         <p className="mt-2 text-[13px] text-ghost" aria-live="polite">
           {note}
@@ -150,30 +139,17 @@ function PlanCard({
         <ul className="mb-9 mt-7 space-y-3 border-t border-white/10 pt-6 text-[15px]">
           {plan.features.map((f) => (
             <li key={f} className="flex gap-3">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 18 18"
-                aria-hidden="true"
-                className="mt-0.5 shrink-0 text-ice"
-              >
-                <path
-                  d="m4 9.5 3.2 3.2L14 5.8"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" className="mt-0.5 shrink-0 text-ice">
+                <path d="m4 9.5 3.2 3.2L14 5.8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span>{f}</span>
             </li>
           ))}
         </ul>
 
-        <Link href={href} className={button}>
+        <a href={trialHref(plan.id)} className={button}>
           {plan.cta}
-        </Link>
+        </a>
       </div>
     </li>
   );

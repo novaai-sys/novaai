@@ -6,11 +6,11 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "Privacy Policy | NovaAI",
   description:
-    "What data NovaAI accesses from your Google account and Google Business Profile, how it is used, and how to have it deleted.",
+    "What data NovaAI handles when it answers calls for your business or replies to your Google reviews, how it is used, and how to have it deleted.",
 };
 
 const CONTACT_EMAIL = "support@getnovaai.app";
-const LAST_UPDATED = "November 16, 2026";
+const LAST_UPDATED = "November 21, 2026";
 const GOOGLE_POLICY_URL =
   "https://developers.google.com/terms/api-services-user-data-policy";
 
@@ -56,10 +56,10 @@ export default function PrivacyPage() {
             Last updated: {LAST_UPDATED}
           </p>
           <p className="mt-6 text-[17px] leading-relaxed text-mist">
-            NovaAI helps business owners reply to their Google reviews. This
-            policy explains what data NovaAI accesses when you create an
-            account and connect your Google Business Profile, what we do with
-            it, and how you can have it deleted.
+            NovaAI answers phone calls for home service businesses with an AI
+            dispatcher, and can also reply to their Google reviews. This
+            policy explains what data we handle for each, what we do with it,
+            and how you can have it deleted.
           </p>
         </header>
 
@@ -67,7 +67,34 @@ export default function PrivacyPage() {
           className="rise mt-12 space-y-10 text-[16px] leading-relaxed text-mist"
           style={{ "--d": "0.12s" } as React.CSSProperties}
         >
-          <Section id="data-we-access" title="Data we access">
+          <Section id="calls" title="Phone calls we answer">
+            <p>
+              When a business forwards its calls to NovaAI, we process, on
+              that business&apos;s behalf:
+            </p>
+            <List>
+              <li>the caller&apos;s phone number and the time of the call;</li>
+              <li>a recording and a transcript of the call;</li>
+              <li>
+                what the caller tells us, such as their name, service address,
+                the problem and when they would like a visit.
+              </li>
+            </List>
+            <p>
+              We use this only to answer the call, pass the job details to
+              the business and show them the recording and transcript. We do
+              not sell it, use it for advertising, or contact callers for our
+              own purposes. Callers who want their data deleted can ask the
+              business or email us.
+            </p>
+            <p>
+              For businesses that request a trial, we store the name, company,
+              email, phone number and location given in the form, to set up
+              the trial and contact them about it.
+            </p>
+          </Section>
+
+          <Section id="data-we-access" title="Google data (review replies)">
             <p>
               NovaAI only accesses Google data after you sign in with Google
               and grant permission on Google&apos;s consent screen. With that
@@ -169,11 +196,21 @@ export default function PrivacyPage() {
               <li>
                 <strong className="font-medium text-fog">Supabase</strong>{" "}
                 hosts our database and sign-in system. Your account, settings,
-                reviews and replies are stored there.
+                call details, reviews and replies are stored there.
+              </li>
+              <li>
+                <strong className="font-medium text-fog">Retell AI</strong>{" "}
+                runs Jessica&apos;s voice: it carries the call audio, produces
+                the recording and transcript, and stores them for us.
+              </li>
+              <li>
+                <strong className="font-medium text-fog">Telnyx</strong>{" "}
+                provides the phone numbers and connects the calls.
               </li>
               <li>
                 <strong className="font-medium text-fog">OpenAI</strong>{" "}
-                generates reply text. To write a reply we send the review
+                provides the language model behind Jessica&apos;s answers and
+                generates review reply text. To write a reply we send the review
                 text, its star rating, the reviewer&apos;s display name, your
                 business name and your tone of voice setting to the OpenAI
                 API.

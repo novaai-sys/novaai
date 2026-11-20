@@ -2,8 +2,7 @@ import Link from "next/link";
 import Logo from "./Logo";
 
 const links = [
-  { href: "/#rules", label: "Autopilot rules" },
-  { href: "/#languages", label: "Languages" },
+  { href: "/#calls", label: "What she handles" },
   { href: "/#how", label: "How it works" },
   { href: "/pricing", label: "Pricing" },
 ];
@@ -45,10 +44,10 @@ export default function Nav() {
             Log in
           </Link>
           <Link
-            href="/signup"
+            href="/#trial"
             className="rounded-full bg-fog px-4 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-white"
           >
-            Start free
+            Free trial
           </Link>
         </div>
       </div>

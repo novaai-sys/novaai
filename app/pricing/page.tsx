@@ -9,7 +9,7 @@ import Reveal from "@/components/Reveal";
 export const metadata: Metadata = {
   title: "Pricing | NovaAI",
   description:
-    "Nova AI plans: a 7-day free trial, Starter for one location and Growth for up to five. Monthly or annual billing.",
+    "NovaAI dispatcher plans: a 14-day free trial, Starter at $199 a month and Pro at $299 a month. Monthly or annual billing.",
 };
 
 const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;
@@ -36,15 +36,15 @@ export default function PricingPage() {
                 <span>Simple pricing.</span>
               </span>{" "}
               <span className="line-mask text-ghost" style={d(0.25)}>
-                <span>Every review answered.</span>
+                <span>Every call answered.</span>
               </span>
             </h1>
             <p
               className="rise mx-auto mt-7 max-w-[48ch] text-balance text-center text-[17px] leading-relaxed text-mist"
               style={d(0.45)}
             >
-              Start with a 7-day free trial, no credit card required. Pay
-              monthly, or annually and save 20%.
+              Start with a 14-day free trial on your real calls, no credit
+              card required. Then pay monthly, or annually and save 20%.
             </p>
 
             <div className="rise mt-14" style={d(0.6)}>

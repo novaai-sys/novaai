@@ -1,9 +1,9 @@
-const line = "Reviews in. Replies out. ";
+const line = "Calls in. Jobs booked. ";
 
 export default function Marquee() {
   return (
     <section
-      aria-label="Reviews in. Replies out."
+      aria-label="Calls in. Jobs booked."
       className="relative overflow-hidden border-y border-white/10 py-16 md:py-24"
     >
       <div
@@ -20,8 +20,8 @@ export default function Marquee() {
       >
         {[0, 1, 2, 3].map((i) => (
           <span key={i} className="pr-[0.4em]">
-            <span className="text-ghost/60">Reviews in.</span>{" "}
-            <span className="text-fog">Replies out.</span>
+            <span className="text-ghost/60">Calls in.</span>{" "}
+            <span className="text-fog">Jobs booked.</span>
           </span>
         ))}
       </div>

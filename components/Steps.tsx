@@ -2,16 +2,16 @@ import Reveal from "./Reveal";
 
 const steps = [
   {
-    title: "Connect your Google Business Profile",
-    body: "Sign in with Google and pick the locations Nova should look after. You can disconnect at any time.",
+    title: "Keep your number",
+    body: "Forward the calls you don't answer, or just nights and weekends, to your NovaAI line. Every carrier supports it, and you can switch it off any time.",
   },
   {
-    title: "Tell Nova how you speak",
-    body: "Warm, formal, short, funny. Add what makes your shop yours, and what Nova should never promise.",
+    title: "We set Jessica up for your shop",
+    body: "Your services, prices, service area, hours and emergency fee. You tell us once; we have her answering within a day.",
   },
   {
-    title: "Reviews get answered",
-    body: "Nova checks for new reviews around the clock, replies to the good ones, and brings you the rest.",
+    title: "Jobs land in your texts",
+    body: "After every call you get the customer, address, problem and time window, plus the recording and transcript.",
   },
 ];
 
@@ -21,7 +21,7 @@ export default function Steps() {
       <div className="mx-auto max-w-[1400px]">
         <Reveal>
           <h2 className="max-w-[16ch] text-[clamp(2rem,4.2vw,3.5rem)] font-medium leading-[1.05] tracking-[-0.03em]">
-            Set up once, in about five minutes.
+            Live in a day. Nothing to install.
           </h2>
         </Reveal>
         <ol className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">

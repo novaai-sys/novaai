@@ -9,11 +9,11 @@ export default function Pricing() {
       <div className="mx-auto max-w-[1200px]">
         <Reveal className="text-center">
           <h2 className="mx-auto max-w-[18ch] text-[clamp(2rem,4.2vw,3.5rem)] font-medium leading-[1.05] tracking-[-0.03em]">
-            Start free. Upgrade when it pays for itself.
+            One booked job pays for the month.
           </h2>
           <p className="mx-auto mt-5 max-w-[50ch] text-[17px] leading-relaxed text-mist">
-            Try Nova on your own reviews for 7 days without a credit card,
-            then pick the plan that fits your locations.
+            A single AC repair or water heater job covers a month of
+            Jessica. Try her on your real calls for 14 days first, free.
           </p>
         </Reveal>
 
