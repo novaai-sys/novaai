@@ -35,6 +35,9 @@ Run these in the Supabase SQL editor, in this order. Each is safe to run again.
 7. [`supabase/migrations/20261121090000_dispatcher_demo_trials.sql`](supabase/migrations/20261121090000_dispatcher_demo_trials.sql):
    demo call limits (`demo_calls`, `claim_demo_call`) and free-trial
    requests (`trial_requests`).
+8. [`supabase/migrations/20261121200000_calls_sms.sql`](supabase/migrations/20261121200000_calls_sms.sql):
+   `businesses` (who gets each agent's job texts) and `calls` (every call
+   with its analysis and text status).
 
 Then in Supabase > Authentication > Email, decide whether "Confirm email" is
 on. With it on, new users confirm by email before they can log in.
@@ -60,6 +63,16 @@ for HVAC and plumbing shops. Calls run on Retell AI with Telnyx numbers.
 - **Trial form** (`components/TrialForm.tsx`) posts to `/api/trial-request`,
   which saves to `trial_requests` and, if `TRIAL_NOTIFY_WEBHOOK_URL` is set,
   posts the request there (Discord, Slack, Make or Zapier).
+- **Job texts** (`app/api/webhooks/retell/route.ts`): Retell posts
+  `call_ended` and `call_analyzed` here. The route checks the
+  `X-Retell-Signature` (HMAC-SHA256 of body + timestamp, keyed with
+  `RETELL_WEBHOOK_KEY` or `RETELL_API_KEY`, max 5 minutes old), saves the
+  call in `calls`, and on `call_analyzed` texts the job to the owner with
+  Telnyx (`lib/dispatcher/sms.ts`). The owner is the `businesses` row
+  whose `retell_agent_id` matches the call, or `OWNER_SMS_TO`. Each call is
+  texted once even if Retell repeats the webhook; a Telnyx outage returns
+  502 so Retell retries. Demo web calls and hang-ups are never texted.
+  Texts need an approved Telnyx 10DLC campaign on the sending number.
 - Billing for the dispatcher plans is not connected yet: create the Starter
   and Pro prices in Paddle first. The dashboard's review-reply plans in
   `lib/plans.ts` are unchanged.
