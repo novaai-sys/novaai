@@ -21,7 +21,7 @@ import { loadUsage, processNewReview } from "./process";
  *   4. record the result and release the lock
  *
  * Work stops at `deadline` and continues on the next run, so it always fits
- * inside Netlify's function time limit.
+ * inside the platform's request time limits.
  */
 
 export const LOCATION_COLUMNS =
@@ -188,8 +188,8 @@ export async function syncLocations(
 /**
  * Time budget for one run, from SYNC_TIME_BUDGET_MS (default 4 seconds).
  * A review that has started is always finished, so a run can last the budget
- * plus one AI reply. 4 s keeps that inside Netlify's default 10-second
- * function limit; on plans where the limit is raised to 26 s, use ~15000.
+ * plus one AI reply. 4 s keeps each call short; the Cloudflare Cron Trigger
+ * (custom-worker.ts) calls again, up to 3 times, while there is more to do.
  */
 export function syncDeadline(start = Date.now()) {
   const budget = Number(process.env.SYNC_TIME_BUDGET_MS) || 4000;

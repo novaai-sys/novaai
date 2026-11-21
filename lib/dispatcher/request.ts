@@ -2,14 +2,14 @@ import "server-only";
 import { createHmac } from "node:crypto";
 
 /**
- * The visitor's IP address as Netlify (or another proxy) reports it, or
+ * The visitor's IP address as Cloudflare (or another proxy) reports it, or
  * null when no proxy header is present.
  */
 export function clientIp(req: Request): string | null {
   const h = req.headers;
   const ip =
-    h.get("x-nf-client-connection-ip") ||
     h.get("cf-connecting-ip") ||
+    h.get("x-nf-client-connection-ip") ||
     h.get("x-real-ip") ||
     h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     "";
@@ -42,7 +42,7 @@ export function sameSite(req: Request) {
   const add = (v?: string | null) => v && allowed.add(v.replace(/^www\./, ""));
   add(req.headers.get("x-forwarded-host"));
   add(req.headers.get("host"));
-  for (const u of [process.env.NEXT_PUBLIC_SITE_URL, process.env.URL, process.env.DEPLOY_PRIME_URL]) {
+  for (const u of [process.env.NEXT_PUBLIC_SITE_URL]) {
     try {
       if (u) add(new URL(u).host);
     } catch {}

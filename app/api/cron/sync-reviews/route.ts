@@ -12,7 +12,7 @@ import { LOCATION_COLUMNS, syncDeadline, syncLocations, type LocationRow } from 
  * for up to SYNC_TIME_BUDGET_MS (default 4 s), then returns. `more: true` means work is
  * left; the scheduled function calls again, and the next run continues.
  *
- * Called every 15 minutes by netlify/functions/sync-reviews.mts. Any other
+ * Called every 15 minutes by the Cloudflare Cron Trigger in custom-worker.ts. Any other
  * scheduler (cron-job.org, GitHub Actions) can call it the same way.
  */
 

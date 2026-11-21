@@ -17,6 +17,41 @@ Live Paddle checkout only opens on domains Paddle has approved, so on
 `localhost` use a sandbox client token and sandbox price IDs with
 `NEXT_PUBLIC_PADDLE_ENV=sandbox`.
 
+## Hosting: Cloudflare Workers
+
+The site runs on Cloudflare Workers through the OpenNext adapter
+(`@opennextjs/cloudflare`). Cloudflare Pages only hosts static Next.js
+exports, so a full Next.js app with API routes runs as a Worker.
+
+- `wrangler.jsonc`: Worker `novaai`, `nodejs_compat`, static assets from
+  `.open-next/assets`, Cron Trigger `*/15 * * * *`.
+- `custom-worker.ts`: wraps OpenNext's Worker and adds the `scheduled()`
+  handler that runs the review sync.
+- `open-next.config.ts`: OpenNext settings (defaults).
+- `scripts/patch-opennext.mjs` runs after `npm install` and fixes a bug in
+  `@opennextjs/aws` 4.2.0 (its middleware crashes on any request with a
+  cookie). Remove it once OpenNext ships a fix.
+- `cacheComponents` is off in `next.config.ts`: OpenNext doesn't fully
+  support it yet and pages hang with it on.
+
+Commands:
+
+```bash
+npm run preview     # build and run in the Workers runtime locally (reads .dev.vars)
+npm run deploy      # build and deploy with your Cloudflare login
+```
+
+**Workers Builds** (deploy on every push to `main`): Workers & Pages →
+`novaai` → Settings → Build → connect `novaai-sys/novaai`, branch `main`,
+build command `npx opennextjs-cloudflare build`, deploy command
+`npx opennextjs-cloudflare deploy`. Add every variable from `.env.example`
+twice: under **Build → Variables and secrets** (the build inlines
+`NEXT_PUBLIC_*` values) and under the Worker's **Settings → Variables and
+Secrets** (runtime). Secrets go in as type *Secret*.
+
+The Workers Free plan allows 10 ms of CPU per request, which server-rendered
+pages can exceed; the Workers Paid plan ($5/month) raises it to 30 s.
+
 ## Database
 
 Run these in the Supabase SQL editor, in this order. Each is safe to run again.
@@ -141,9 +176,9 @@ regenerate), `POST /api/reviews/:id/publish`, `POST /api/reviews/sync`.
 - Callers: "Sync now" on the Locations page (`POST /api/reviews/sync`, the
   owner's locations) and the cron route `/api/cron/sync-reviews` (all active
   connections, `Authorization: Bearer $CRON_SECRET`).
-- `netlify/functions/sync-reviews.mts` is a Netlify scheduled function that
-  calls the cron route every 15 minutes, and again (up to 3 times) while the
-  response says `more: true`.
+- A Cloudflare Cron Trigger (`custom-worker.ts`, schedule in
+  `wrangler.jsonc`) calls the cron route inside the Worker every 15 minutes,
+  and again (up to 3 times) while the response says `more: true`.
 
 ### Integrations API (Make.com, Zapier, scripts)
 
