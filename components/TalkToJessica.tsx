@@ -1,22 +1,32 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { WebCallSession } from "retell-client-js-sdk";
+import type { RetellWebClient } from "retell-client-js-sdk";
 
 type State = "idle" | "connecting" | "live" | "ended" | "error";
 
+type CallDetails = {
+  accessToken: string;
+  callId?: string;
+  transport?: "gateway" | "livekit";
+  url?: string;
+  iceServers?: RTCIceServer[];
+};
+
 /**
- * Live demo: a web call with Jessica from the browser. The Retell SDK sends
- * its create-web-call request to our own route (/api/demo/retell/...), which
- * adds the secret key, picks the demo agent and applies the demo limits.
+ * Live demo: a web call with Jessica from the browser.
+ *
+ * Our server creates the call (/api/demo/web-call keeps the Retell key secret
+ * and applies the demo limits). The browser then connects its audio straight
+ * to Retell with RetellWebClient.startCall().
  */
 export default function TalkToJessica() {
   const [state, setState] = useState<State>("idle");
   const [message, setMessage] = useState("");
   const [seconds, setSeconds] = useState(0);
-  const call = useRef<WebCallSession | null>(null);
+  const client = useRef<RetellWebClient | null>(null);
 
-  useEffect(() => () => void call.current?.end().catch(() => {}), []);
+  useEffect(() => () => client.current?.stopCall(), []);
 
   useEffect(() => {
     if (state !== "live") return;
@@ -28,33 +38,69 @@ export default function TalkToJessica() {
     setState("connecting");
     setMessage("");
     setSeconds(0);
+
+    // Ask for the microphone first, so a "Block" never uses up a demo call.
     try {
-      const { RetellClient } = await import("retell-client-js-sdk");
-      const client = new RetellClient({
-        key: "server-side",
-        baseURL: `${window.location.origin}/api/demo/retell`,
-      });
-      const session = client.createWebCall({
-        agent_id: "demo",
-        hooks: {
-          onStatus: (s) => {
-            if (s === "live") setState("live");
-            if (s === "ended") setState((p) => (p === "error" ? p : "ended"));
-          },
-        },
-      });
-      call.current = session;
-      await session.ready;
-    } catch (e) {
-      call.current = null;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch {
       setState("error");
-      setMessage(describe(e));
+      setMessage("Allow microphone access in your browser to talk to Jessica.");
+      return;
+    }
+
+    let details: CallDetails;
+    try {
+      const res = await fetch("/api/demo/web-call", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.accessToken) {
+        setState("error");
+        setMessage(json.error || "The demo couldn't connect. Please try again.");
+        return;
+      }
+      details = json;
+    } catch {
+      setState("error");
+      setMessage("The demo couldn't connect. Check your connection and try again.");
+      return;
+    }
+
+    try {
+      const { RetellWebClient } = await import("retell-client-js-sdk");
+      const c = new RetellWebClient();
+      client.current = c;
+      c.on("call_started", () => setState("live"));
+      c.on("call_ended", () => {
+        client.current = null;
+        setState((p) => (p === "error" ? p : "ended"));
+      });
+      c.on("error", (e: unknown) => {
+        console.error("[demo] call error", e);
+        c.stopCall();
+        client.current = null;
+        setState("error");
+        setMessage("The call dropped. Please try again.");
+      });
+      await c.startCall({
+        accessToken: details.accessToken,
+        callId: details.callId,
+        transport: details.transport,
+        url: details.url,
+        iceServers: details.iceServers,
+      });
+      setState((p) => (p === "connecting" ? "live" : p));
+    } catch (e) {
+      console.error("[demo] could not connect", e);
+      client.current?.stopCall();
+      client.current = null;
+      setState("error");
+      setMessage("The call couldn't connect. Check your connection and try again.");
     }
   }
 
-  async function stop() {
-    await call.current?.end().catch(() => {});
-    call.current = null;
+  function stop() {
+    client.current?.stopCall();
+    client.current = null;
     setState("ended");
   }
 
@@ -113,18 +159,4 @@ export default function TalkToJessica() {
       </p>
     </div>
   );
-}
-
-function describe(e: unknown) {
-  if (e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "SecurityError")) {
-    return "Allow microphone access in your browser to talk to Jessica.";
-  }
-  if (e && typeof e === "object" && "body" in e) {
-    const body = (e as { body?: { error?: unknown } }).body;
-    if (body && typeof body.error === "string") return body.error;
-  }
-  if (e instanceof Error && /microphone|permission|NotAllowed/i.test(e.message)) {
-    return "Allow microphone access in your browser to talk to Jessica.";
-  }
-  return "The demo couldn't connect. Check your connection and try again.";
 }

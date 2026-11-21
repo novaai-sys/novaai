@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return fail(400, "Enter a valid email address.", "email");
   if (f.phone.replace(/\D/g, "").length < 10) return fail(400, "Enter a phone number with area code.", "phone");
 
-  const hash = ipHash(req);
+  const hash = ipHash(req) ?? "";
   let db;
   try {
     db = createAdminClient();
@@ -51,11 +51,13 @@ export async function POST(req: Request) {
   }
 
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  const { count } = await db
-    .from("trial_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("ip_hash", hash)
-    .gte("created_at", since);
+  const { count } = hash
+    ? await db
+        .from("trial_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("ip_hash", hash)
+        .gte("created_at", since)
+    : { count: 0 };
   if ((count ?? 0) >= PER_IP_PER_DAY) {
     return fail(429, "We already have your request. We'll be in touch within one business day.");
   }

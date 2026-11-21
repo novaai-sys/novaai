@@ -50,11 +50,13 @@ for HVAC and plumbing shops. Calls run on Retell AI with Telnyx numbers.
   `lib/dispatcher/plans.ts` (Starter $199, Pro $299, 14-day free trial).
   Every plan button opens the trial form; setup is done for each shop.
 - **Live demo** (`components/TalkToJessica.tsx`): a browser call with the
-  agent in `RETELL_DEMO_AGENT_ID`. The Retell browser SDK sends its
-  create-web-call request to `/api/demo/retell/v3/create-web-call`, which
-  checks the origin, applies `DEMO_CALLS_PER_IP` / `DEMO_CALLS_PER_DAY`,
-  adds `RETELL_API_KEY` and forwards to Retell. The key never reaches the
-  browser.
+  agent in `RETELL_DEMO_AGENT_ID`. The browser asks for the microphone,
+  then calls `/api/demo/web-call`, which checks the origin, applies
+  `DEMO_CALLS_PER_IP` / `DEMO_CALLS_PER_DAY` (defaults 10 and 300 per 24
+  hours) and creates the call at Retell with `RETELL_API_KEY`. The browser
+  connects its audio straight to Retell with `RetellWebClient.startCall()`.
+  A call Retell refuses is not counted. To reset the limits while testing,
+  delete the rows in the `demo_calls` table.
 - **Trial form** (`components/TrialForm.tsx`) posts to `/api/trial-request`,
   which saves to `trial_requests` and, if `TRIAL_NOTIFY_WEBHOOK_URL` is set,
   posts the request there (Discord, Slack, Make or Zapier).
