@@ -1,8 +1,9 @@
 # NovaAI
 
-Replies to Google reviews, written by AI in your tone of voice.
+An AI dispatcher that answers calls for HVAC and plumbing shops (Retell AI +
+Telnyx), plus AI replies to Google reviews.
 Next.js 16, Tailwind CSS 4, Supabase (auth + database), OpenAI `gpt-4o-mini`,
-Paddle Billing, Google Business Profile API.
+Paddle Billing, Retell AI, Google Business Profile API.
 
 ## Run it locally
 
@@ -31,11 +32,35 @@ Run these in the Supabase SQL editor, in this order. Each is safe to run again.
 6. [`supabase/migrations/20261119120000_google_autosync.sql`](supabase/migrations/20261119120000_google_autosync.sql):
    cached access tokens, connection status, per-location sync status and the
    sync lock.
+7. [`supabase/migrations/20261121090000_dispatcher_demo_trials.sql`](supabase/migrations/20261121090000_dispatcher_demo_trials.sql):
+   demo call limits (`demo_calls`, `claim_demo_call`) and free-trial
+   requests (`trial_requests`).
 
 Then in Supabase > Authentication > Email, decide whether "Confirm email" is
 on. With it on, new users confirm by email before they can log in.
 
 ## How the pieces fit
+
+### AI dispatcher (landing page, live demo, trials)
+
+NovaAI's main product is now Jessica, an AI dispatcher that answers calls
+for HVAC and plumbing shops. Calls run on Retell AI with Telnyx numbers.
+
+- `/` and `/pricing` sell the dispatcher. Plans are in
+  `lib/dispatcher/plans.ts` (Starter $199, Pro $299, 14-day free trial).
+  Every plan button opens the trial form; setup is done for each shop.
+- **Live demo** (`components/TalkToJessica.tsx`): a browser call with the
+  agent in `RETELL_DEMO_AGENT_ID`. The Retell browser SDK sends its
+  create-web-call request to `/api/demo/retell/v3/create-web-call`, which
+  checks the origin, applies `DEMO_CALLS_PER_IP` / `DEMO_CALLS_PER_DAY`,
+  adds `RETELL_API_KEY` and forwards to Retell. The key never reaches the
+  browser.
+- **Trial form** (`components/TrialForm.tsx`) posts to `/api/trial-request`,
+  which saves to `trial_requests` and, if `TRIAL_NOTIFY_WEBHOOK_URL` is set,
+  posts the request there (Discord, Slack, Make or Zapier).
+- Billing for the dispatcher plans is not connected yet: create the Starter
+  and Pro prices in Paddle first. The dashboard's review-reply plans in
+  `lib/plans.ts` are unchanged.
 
 ### Plans
 

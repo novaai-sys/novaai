@@ -1,11 +1,10 @@
 import Nav from "@/components/Nav";
 import Hero from "@/components/Hero";
 import Marquee from "@/components/Marquee";
-import Rules from "@/components/Rules";
-import Languages from "@/components/Languages";
+import Handles from "@/components/Handles";
 import Steps from "@/components/Steps";
 import Pricing from "@/components/Pricing";
-import Cta from "@/components/Cta";
+import TrialForm from "@/components/TrialForm";
 import Footer from "@/components/Footer";
 
 export default function Home() {
@@ -15,11 +14,10 @@ export default function Home() {
       <main>
         <Hero />
         <Marquee />
-        <Rules />
-        <Languages />
+        <Handles />
         <Steps />
         <Pricing />
-        <Cta />
+        <TrialForm />
       </main>
       <Footer />
     </>
