@@ -6,10 +6,10 @@
   "main": "custom-worker.ts",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
-  // Keep the variables set in the Cloudflare dashboard (Settings > Variables
-  // and Secrets) when deploying. Without this, every deploy deletes the
-  // plain-text ones (e.g. RETELL_DEMO_AGENT_ID); secrets are never deleted.
-  "keep_vars": true,
+  // Environment variables are uploaded as secrets by scripts/cf-deploy.mjs
+  // from the Workers Builds build variables, on every deploy. Plain-text
+  // variables added in the dashboard are removed on deploy, so the build
+  // variables stay the single source of truth.
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "novaai" }],
   // Google review sync every 15 minutes (UTC).

@@ -44,10 +44,11 @@ npm run deploy      # build and deploy with your Cloudflare login
 **Workers Builds** (deploy on every push to `main`): Workers & Pages →
 `novaai` → Settings → Build → connect `novaai-sys/novaai`, branch `main`,
 build command `npx opennextjs-cloudflare build`, deploy command
-`npx opennextjs-cloudflare deploy`. Add every variable from `.env.example`
-twice: under **Build → Variables and secrets** (the build inlines
-`NEXT_PUBLIC_*` values) and under the Worker's **Settings → Variables and
-Secrets** (runtime). Secrets go in as type *Secret*.
+`node scripts/cf-deploy.mjs`. Put every variable from `.env.example` under
+**Build → Variables and secrets**. The build inlines the `NEXT_PUBLIC_*`
+values, and `scripts/cf-deploy.mjs` uploads all of them to the Worker as
+secrets with each deploy (values are never printed). `GET /api/health`
+shows which variables the running Worker can see.
 
 The Workers Free plan allows 10 ms of CPU per request, which server-rendered
 pages can exceed; the Workers Paid plan ($5/month) raises it to 30 s.
