@@ -9,6 +9,8 @@ import { isPublished, useDashboard } from "./Store";
 import { planNames } from "@/lib/usage";
 
 const nav = [
+  { href: "/dashboard/calls", label: "Calls" },
+  { href: "/dashboard/call-settings", label: "Call settings" },
   { href: "/dashboard", label: "Reviews" },
   { href: "/dashboard/autopilot", label: "Autopilot" },
   { href: "/dashboard/tone", label: "Tone of voice" },
@@ -76,7 +78,9 @@ export default function Sidebar() {
         className="flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-6 lg:flex-col lg:overflow-visible lg:px-4 lg:pb-0"
       >
         {nav.map((item) => {
-          const current = pathname === item.href;
+          const current =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
           return (
             <Link
               key={item.href}

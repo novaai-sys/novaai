@@ -74,6 +74,9 @@ Run these in the Supabase SQL editor, in this order. Each is safe to run again.
 8. [`supabase/migrations/20261121200000_calls_sms.sql`](supabase/migrations/20261121200000_calls_sms.sql):
    `businesses` (who gets each agent's job texts) and `calls` (every call
    with its analysis and text status).
+9. [`supabase/migrations/20261123180000_post_call_automation.sql`](supabase/migrations/20261123180000_post_call_automation.sql):
+   client accounts on businesses, post-call settings, outcome and follow-up
+   status on calls, row-level security, `assign_business_owner()`.
 
 Then in Supabase > Authentication > Email, decide whether "Confirm email" is
 on. With it on, new users confirm by email before they can log in.
@@ -102,16 +105,32 @@ for HVAC and plumbing shops. Calls run on Retell AI with Telnyx numbers.
 - **Trial form** (`components/TrialForm.tsx`) posts to `/api/trial-request`,
   which saves to `trial_requests` and, if `TRIAL_NOTIFY_WEBHOOK_URL` is set,
   posts the request there (Discord, Slack, Make or Zapier).
-- **Job texts** (`app/api/webhooks/retell/route.ts`): Retell posts
-  `call_ended` and `call_analyzed` here. The route checks the
-  `X-Retell-Signature` (HMAC-SHA256 of body + timestamp, keyed with
-  `RETELL_WEBHOOK_KEY` or `RETELL_API_KEY`, max 5 minutes old), saves the
-  call in `calls`, and on `call_analyzed` texts the job to the owner with
-  Telnyx (`lib/dispatcher/sms.ts`). The owner is the `businesses` row
-  whose `retell_agent_id` matches the call, or `OWNER_SMS_TO`. Each call is
-  texted once even if Retell repeats the webhook; a Telnyx outage returns
-  502 so Retell retries. Demo web calls and hang-ups are never texted.
-  Texts need an approved Telnyx 10DLC campaign on the sending number.
+- **After every call** (`app/api/webhooks/retell/route.ts`,
+  `lib/dispatcher/post-call.ts`): Retell posts `call_ended` and
+  `call_analyzed`. The route checks the `X-Retell-Signature` (HMAC-SHA256 of
+  body + timestamp, keyed with `RETELL_WEBHOOK_KEY` or `RETELL_API_KEY`, max
+  5 minutes old) and saves the call in `calls`, linked to the `businesses`
+  row for the agent and its client (`user_id`). On `call_analyzed` it runs
+  three follow-ups, each recorded with its own status:
+  - text to the owner (`owner_phone`, Telnyx) with the job and a link to
+    `/dashboard/calls/<call_id>`;
+  - email to the owner (`notify_email`, Resend) with the summary and the
+    same link;
+  - text to the caller (Telnyx), from the business's booked or follow-up
+    template (`lib/dispatcher/templates.ts`), only when
+    `caller_sms_enabled` is on and the caller didn't say no (`text_ok`).
+  Each is sent once even if Retell repeats the webhook; a failure that may
+  succeed later returns 502 so Retell retries. Demo calls, hang-ups, spam
+  and voicemail get no follow-ups. Texts need an approved Telnyx 10DLC
+  campaign on the sending number.
+- **Dashboard**: `/dashboard/calls` (list), `/dashboard/calls/[id]`
+  (summary, recording, transcript, follow-up status) and
+  `/dashboard/call-settings` (owner phone and email, caller text templates
+  with live preview, follow-up link). Clients read only their own calls and
+  edit only their own settings (row-level security).
+- **Connecting a client**: insert the business, then link it to their
+  NovaAI account: `select public.assign_business_owner('agent_xxx',
+  'owner@shop.com');`
 - Paddle: products "Nova AI - Starter Plan" (`pro_01m8316kvhhf55rn56zswzsbp9`)
   and "Nova AI - Growth Plan" (`pro_01m831j71chb2q2m2pxa0xp1f8`), one monthly
   and one annual price each, in the `NEXT_PUBLIC_PADDLE_PRICE_*` variables.

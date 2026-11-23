@@ -48,3 +48,50 @@ export type GoogleConnection = {
   status?: string;
   last_error?: string | null;
 };
+
+/** Delivery state of one post-call follow-up (owner text, email, caller text). */
+export type FollowUpStatus = "pending" | "sending" | "sent" | "failed" | "skipped";
+
+/** A call Jessica answered, as the client's dashboard reads it (calls table). */
+export type CallRow = {
+  call_id: string;
+  created_at: string;
+  started_at: string | null;
+  duration_ms: number | null;
+  from_number: string;
+  to_number: string;
+  outcome: "" | "booked" | "lead" | "hang_up" | "spam" | "voicemail";
+  customer_name: string;
+  summary: string;
+  user_sentiment: string;
+  recording_url: string;
+  transcript: string;
+  analysis: { custom_analysis_data?: Record<string, unknown>; call_summary?: string } | null;
+  sms_status: FollowUpStatus;
+  sms_to: string;
+  sms_body: string;
+  sms_error: string;
+  email_status: FollowUpStatus;
+  email_to: string;
+  email_subject: string;
+  email_error: string;
+  caller_sms_status: FollowUpStatus;
+  caller_sms_to: string;
+  caller_sms_body: string;
+  caller_sms_error: string;
+};
+
+/** A client's business line and its post-call settings (businesses table). */
+export type BusinessRow = {
+  id: string;
+  name: string;
+  retell_agent_id: string;
+  owner_phone: string | null;
+  sms_enabled: boolean;
+  notify_email: string | null;
+  email_enabled: boolean;
+  caller_sms_enabled: boolean;
+  caller_sms_booked_template: string | null;
+  caller_sms_followup_template: string | null;
+  followup_link: string;
+};
