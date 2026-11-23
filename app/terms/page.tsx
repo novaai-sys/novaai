@@ -2,22 +2,27 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
-import { TRIAL_DAYS, dispatcherPlans } from "@/lib/dispatcher/plans";
+import {
+  MIN_BILLABLE_CALL_SECONDS,
+  TRIAL_CALLS,
+  TRIAL_DAYS,
+  dispatcherPlan,
+} from "@/lib/dispatcher/plans";
 
 export const metadata: Metadata = {
   title: "Terms of Service | NovaAI",
   description:
-    "The terms for using NovaAI: the 14-day free trial, the Starter and Pro subscriptions, billing, cancellation, call recording and your responsibilities.",
+    "The terms for using NovaAI: the 14-day free trial, the Starter and Growth subscriptions, billing, cancellation, call recording and your responsibilities.",
 };
 
 const SUPPORT = "support@getnovaai.app";
-const LAST_UPDATED = "November 21, 2026";
+const LAST_UPDATED = "November 23, 2026";
 
 const link =
   "text-fog underline decoration-white/30 underline-offset-4 hover:decoration-white";
 
-const starter = dispatcherPlans.find((p) => p.id === "starter")!;
-const pro = dispatcherPlans.find((p) => p.id === "pro")!;
+const starter = dispatcherPlan("starter");
+const growth = dispatcherPlan("growth");
 
 function Section({
   id,
@@ -95,12 +100,13 @@ export default function TermsPage() {
           <Section id="trial" title="Free trial">
             <List>
               <li>
-                Every new customer can try NovaAI free for {TRIAL_DAYS} days.
-                No credit card is required.
+                Every new customer can try NovaAI free for {TRIAL_DAYS} days
+                or {TRIAL_CALLS} answered calls, whichever comes first. No
+                credit card is required.
               </li>
               <li>
                 During the trial, Jessica answers the calls you forward to your
-                NovaAI number, up to 150 calls.
+                NovaAI number.
               </li>
               <li>
                 The trial never turns into a paid plan on its own. You are only
@@ -118,16 +124,21 @@ export default function TermsPage() {
                 {starter.price.monthly} per month billed monthly, or $
                 {starter.price.annual} per month billed annually ($
                 {(starter.price.annual * 12).toLocaleString("en-US")} per year).
-                Up to 150 answered calls a month.
+                Up to {starter.calls} answered calls a month.
               </li>
               <li>
-                <strong className="font-medium text-fog">Pro:</strong> $
-                {pro.price.monthly} per month billed monthly, or $
-                {pro.price.annual} per month billed annually ($
-                {(pro.price.annual * 12).toLocaleString("en-US")} per year).
-                Up to 400 answered calls a month.
+                <strong className="font-medium text-fog">Growth:</strong> $
+                {growth.price.monthly} per month billed monthly, or $
+                {growth.price.annual} per month billed annually ($
+                {(growth.price.annual * 12).toLocaleString("en-US")} per year).
+                Up to {growth.calls} answered calls a month.
               </li>
             </List>
+            <p>
+              An answered call is a call Jessica picks up that lasts longer
+              than {MIN_BILLABLE_CALL_SECONDS} seconds. Hang-ups, wrong numbers
+              and spam calls she ends quickly don&apos;t count.
+            </p>
             <p>
               If you go over your plan&apos;s calls in a month, Jessica keeps
               answering. We will tell you, and if it happens two months in a

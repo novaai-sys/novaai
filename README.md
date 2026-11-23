@@ -86,7 +86,10 @@ NovaAI's main product is now Jessica, an AI dispatcher that answers calls
 for HVAC and plumbing shops. Calls run on Retell AI with Telnyx numbers.
 
 - `/` and `/pricing` sell the dispatcher. Plans are in
-  `lib/dispatcher/plans.ts` (Starter $199, Pro $299, 14-day free trial).
+  `lib/dispatcher/plans.ts`, the single source for prices and call limits:
+  Starter $249/mo ($199/mo annual, 150 calls), Growth $449/mo ($359/mo
+  annual, 300 calls), free trial 14 days or 50 calls. `lib/plans.ts` builds
+  the billing dashboard's plans from it.
   Every plan button opens the trial form; setup is done for each shop.
 - **Live demo** (`components/TalkToJessica.tsx`): a browser call with the
   agent in `RETELL_DEMO_AGENT_ID`. The browser asks for the microphone,
@@ -109,9 +112,10 @@ for HVAC and plumbing shops. Calls run on Retell AI with Telnyx numbers.
   texted once even if Retell repeats the webhook; a Telnyx outage returns
   502 so Retell retries. Demo web calls and hang-ups are never texted.
   Texts need an approved Telnyx 10DLC campaign on the sending number.
-- Billing for the dispatcher plans is not connected yet: create the Starter
-  and Pro prices in Paddle first. The dashboard's review-reply plans in
-  `lib/plans.ts` are unchanged.
+- Paddle: products "Nova AI - Starter" and "Nova AI - Growth", one monthly
+  and one annual price each, in the `NEXT_PUBLIC_PADDLE_PRICE_*` variables.
+  Internal plan ids stay `starter` / `growth`, so the database and webhook
+  are unchanged.
 
 ### Plans
 

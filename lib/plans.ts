@@ -1,9 +1,11 @@
 /**
- * NovaAI plans. One place for names, prices, features and where each
- * button goes, used by the landing page section and /pricing.
+ * Plans as the billing dashboard and Paddle checkout see them. Prices, call
+ * limits and copy come from lib/dispatcher/plans.ts, so every page shows the
+ * same numbers. "free" is the account's state before it subscribes.
  */
 
 import type { Billing } from "./billing";
+import { dispatcherPlan } from "./dispatcher/plans";
 export type { Billing };
 
 export type Plan = {
@@ -17,50 +19,20 @@ export type Plan = {
   popular?: boolean;
 };
 
-export const plans: Plan[] = [
-  {
-    id: "free",
-    name: "Free Trial",
-    tagline: "Test Nova AI on your business profile",
-    price: { monthly: 0, annual: 0 },
-    features: [
-      "7-day free trial (up to 10 AI-generated review replies)",
-      "Connect 1 Google Business Profile location",
-      "Basic brand voice customization",
-      "Standard email support",
-    ],
-    cta: "Start Free Trial",
-  },
-  {
-    id: "starter",
-    name: "Starter",
-    tagline: "Everything a local business needs to grow its reputation",
-    price: { monthly: 19, annual: 15 },
-    features: [
-      "1 Google Business Profile location",
-      "Unlimited AI-powered review responses",
-      "Custom brand tone & language matching",
-      "Real-time new review email alerts",
-      "Priority support (support@getnovaai.app)",
-    ],
-    cta: "Get Started",
-    popular: true,
-  },
-  {
-    id: "growth",
-    name: "Growth",
-    tagline: "Built for multi-location businesses & agencies",
-    price: { monthly: 49, annual: 39 },
-    features: [
-      "Up to 5 Google Business Profile locations",
-      "Unlimited AI review responses",
-      "Smart Auto-Reply rules for 4 & 5-star reviews",
-      "Sentiment & customer feedback insights",
-      "Dedicated priority support",
-    ],
-    cta: "Upgrade to Growth",
-  },
-];
+const from = (id: "trial" | "starter" | "growth", planId: Plan["id"]): Plan => {
+  const d = dispatcherPlan(id);
+  return {
+    id: planId,
+    name: d.name,
+    tagline: d.tagline,
+    price: d.price,
+    features: d.features,
+    cta: d.cta,
+    popular: d.popular,
+  };
+};
+
+export const plans: Plan[] = [from("trial", "free"), from("starter", "starter"), from("growth", "growth")];
 
 /**
  * Where a plan's button goes. The free trial opens sign-up. Paid plans open
