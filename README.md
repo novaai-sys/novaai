@@ -112,7 +112,8 @@ for HVAC and plumbing shops. Calls run on Retell AI with Telnyx numbers.
   texted once even if Retell repeats the webhook; a Telnyx outage returns
   502 so Retell retries. Demo web calls and hang-ups are never texted.
   Texts need an approved Telnyx 10DLC campaign on the sending number.
-- Paddle: products "Nova AI - Starter" and "Nova AI - Growth", one monthly
+- Paddle: products "Nova AI - Starter Plan" (`pro_01m8316kvhhf55rn56zswzsbp9`)
+  and "Nova AI - Growth Plan" (`pro_01m831j71chb2q2m2pxa0xp1f8`), one monthly
   and one annual price each, in the `NEXT_PUBLIC_PADDLE_PRICE_*` variables.
   Internal plan ids stay `starter` / `growth`, so the database and webhook
   are unchanged.
