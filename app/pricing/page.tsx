@@ -9,7 +9,7 @@ import Reveal from "@/components/Reveal";
 export const metadata: Metadata = {
   title: "Pricing | NovaAI",
   description:
-    "NovaAI dispatcher plans: a 14-day free trial, Starter at $199 a month and Pro at $299 a month. Monthly or annual billing.",
+    "NovaAI dispatcher plans: a 14-day free trial, Starter at $249 a month for 150 calls and Growth at $449 a month for 300 calls. Save 20% with annual billing.",
 };
 
 const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;

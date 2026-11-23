@@ -9,7 +9,7 @@ const faqs = [
   },
   {
     q: "What does Jessica do in an emergency?",
-    a: "Safety comes first. For a gas smell, a carbon monoxide alarm or sparks, she tells the caller to get out and call 911 or the gas company. For flooding, she walks them to the main water shut-off. Then she books the earliest emergency visit and texts you straight away. On Pro she can also transfer the call to your on-call phone.",
+    a: "Safety comes first. For a gas smell, a carbon monoxide alarm or sparks, she tells the caller to get out and call 911 or the gas company. For flooding, she walks them to the main water shut-off. Then she books the earliest emergency visit and texts you straight away. On Growth she can also transfer the call to your on-call phone.",
   },
   {
     q: "Does she quote prices?",
@@ -18,6 +18,10 @@ const faqs = [
   {
     q: "Does it work with ServiceTitan, Jobber or Housecall Pro?",
     a: "Today Jessica texts you the job details and keeps every recording and transcript, so you can add the job to any software in seconds. Booking straight into your software is on the way; tell us what you use when you start your trial.",
+  },
+  {
+    q: "What counts as a call, and what if I go over?",
+    a: "A call counts when Jessica picks up and it lasts longer than 20 seconds, so hang-ups, wrong numbers and spam don't use up your plan. If you go over, she keeps answering: we let you know, and if it happens two months in a row we suggest the plan that fits. We never charge for extra calls without asking.",
   },
   {
     q: "Can I cancel anytime?",
