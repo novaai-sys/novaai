@@ -1,27 +1,28 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyRetellSignature, type RetellCall } from "@/lib/dispatcher/retell-webhook";
-import { buildJobText, sendTelnyxSms, TelnyxError } from "@/lib/dispatcher/sms";
+import { BUSINESS_COLUMNS, describeCall, runPostCall, type Business } from "@/lib/dispatcher/post-call";
 
 /**
  * POST /api/webhooks/retell
  *
  * Retell calls this when a call starts, ends and has been analyzed.
  *
- * - call_ended: saves the call in `calls`.
- * - call_analyzed: saves the analysis, then texts the job details to the
- *   business owner with Telnyx (once per call, even if Retell repeats the
- *   webhook).
+ * - call_ended: saves the call in `calls`, linked to the business that owns
+ *   the agent and to that business's client account (user_id).
+ * - call_analyzed: saves the analysis (summary, sentiment, outcome), then
+ *   runs the follow-ups in lib/dispatcher/post-call.ts: text and email the
+ *   owner with a link to the call in the dashboard, and text the caller a
+ *   confirmation or follow-up if the business turned that on.
  *
- * Who gets the text: the `businesses` row whose retell_agent_id matches the
- * call's agent, or OWNER_SMS_TO when no row matches. Texts are sent from
- * TELNYX_FROM_NUMBER, or from the number the customer called.
- *
- * Demo calls from the landing page (web calls, or the agent in
- * RETELL_DEMO_AGENT_ID) are saved but never texted.
+ * The business is the `businesses` row whose retell_agent_id matches the
+ * call's agent. With no row, the owner text goes to OWNER_SMS_TO and the
+ * email to OWNER_EMAIL_TO, and the caller is never texted.
  *
  * The request must carry a valid X-Retell-Signature, made with
- * RETELL_WEBHOOK_KEY or, if that isn't set, RETELL_API_KEY.
+ * RETELL_WEBHOOK_KEY or, if that isn't set, RETELL_API_KEY. When a follow-up
+ * fails in a way that may succeed later, the route answers 502 so Retell
+ * retries; follow-ups already sent are never repeated.
  */
 
 type Db = ReturnType<typeof createAdminClient>;
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
     updated_at: new Date().toISOString(),
     agent_id: call.agent_id ?? "",
     business_id: business?.id ?? null,
+    user_id: business?.user_id ?? null,
     call_type: call.call_type ?? "",
     direction: call.direction ?? "",
     from_number: call.from_number ?? "",
@@ -71,8 +73,14 @@ export async function POST(req: Request) {
     transcript: (call.transcript ?? "").slice(0, 50000),
   };
   if (call.call_analysis) {
+    const info = describeCall(call);
     row.summary = call.call_analysis.call_summary ?? "";
     row.analysis = call.call_analysis;
+    row.outcome = info.outcome;
+    row.customer_name = info.customerName;
+    row.user_sentiment = call.call_analysis.user_sentiment ?? "";
+    row.call_successful = typeof call.call_analysis.call_successful === "boolean" ? call.call_analysis.call_successful : null;
+    row.in_voicemail = typeof call.call_analysis.in_voicemail === "boolean" ? call.call_analysis.in_voicemail : null;
   }
 
   const { error: saveError } = await db.from("calls").upsert(row, { onConflict: "call_id" });
@@ -83,70 +91,24 @@ export async function POST(req: Request) {
 
   if (event === "call_ended") return ok({ saved: call.call_id });
 
-  // ---- call_analyzed: text the owner ----
-  const skip = async (reason: string) => {
-    await db
-      .from("calls")
-      .update({ sms_status: "skipped", sms_error: reason })
-      .eq("call_id", call.call_id)
-      .eq("sms_status", "pending");
-    return ok({ sms: "skipped", reason });
-  };
-
-  const demoAgent = process.env.RETELL_DEMO_AGENT_ID;
-  if (call.call_type === "web_call" || (demoAgent && call.agent_id === demoAgent)) {
-    return skip("demo call");
+  const results = await runPostCall(db, call, business);
+  const retry = Object.entries(results).filter(([, r]) => r.state === "failed" && r.retryable);
+  for (const [channel, r] of Object.entries(results)) {
+    if (r.state === "failed") console.error(`[retell-webhook] ${channel} failed:`, r.error);
   }
-  if (business && !business.sms_enabled) return skip("texts turned off for this business");
-
-  const to = business?.owner_phone || process.env.OWNER_SMS_TO || "";
-  if (!to) return skip(`no business for agent ${call.agent_id ?? "?"} and OWNER_SMS_TO not set`);
-
-  const from = process.env.TELNYX_FROM_NUMBER || call.to_number || "";
-  if (!from) return skip("no number to send from: set TELNYX_FROM_NUMBER");
-
-  const text = buildJobText(call, business?.name || process.env.OWNER_BUSINESS_NAME || "your line");
-  if (!text.hasInfo && (call.duration_ms ?? 0) < 15000) return skip("hang-up with no details");
-
-  // Claim the text, so a repeated webhook can't send it twice.
-  const { data: claimed, error: claimError } = await db
-    .from("calls")
-    .update({ sms_status: "sending", sms_to: to, sms_body: text.body, sms_error: "" })
-    .eq("call_id", call.call_id)
-    .in("sms_status", ["pending", "failed"])
-    .select("call_id");
-  if (claimError) {
-    console.error("[retell-webhook] claim failed", claimError);
-    return NextResponse.json({ error: "Could not claim SMS" }, { status: 500 });
+  if (retry.length) {
+    return NextResponse.json({ error: "Some follow-ups failed, retry", results }, { status: 502 });
   }
-  if (!claimed?.length) return ok({ sms: "already handled" });
-
-  try {
-    const id = await sendTelnyxSms({ from, to, text: text.body });
-    await db.from("calls").update({ sms_status: "sent", sms_message_id: id }).eq("call_id", call.call_id);
-    return ok({ sms: "sent", id });
-  } catch (e) {
-    const err = e instanceof TelnyxError ? e : new TelnyxError(String(e), 0);
-    console.error("[retell-webhook] SMS failed", err.status, err.message);
-    await db
-      .from("calls")
-      .update({ sms_status: "failed", sms_error: err.message.slice(0, 500) })
-      .eq("call_id", call.call_id);
-    // Ask Retell to retry only when trying again could help.
-    if (err.retryable) {
-      return NextResponse.json({ error: "SMS failed, retry", detail: err.message }, { status: 502 });
-    }
-    return ok({ sms: "failed", error: err.message });
-  }
+  return ok({ results });
 }
 
 async function findBusiness(db: Db, agentId?: string) {
   if (!agentId) return null;
   const { data, error } = await db
     .from("businesses")
-    .select("id, name, owner_phone, sms_enabled")
+    .select(BUSINESS_COLUMNS)
     .eq("retell_agent_id", agentId)
     .maybeSingle();
   if (error) console.error("[retell-webhook] business lookup failed", error);
-  return data as { id: string; name: string; owner_phone: string; sms_enabled: boolean } | null;
+  return (data as Business | null) ?? null;
 }

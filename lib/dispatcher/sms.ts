@@ -1,5 +1,6 @@
 import "server-only";
 import type { RetellCall } from "./retell-webhook";
+import { gsm } from "./templates";
 
 /**
  * Builds the job text for the business owner from Retell's post-call
@@ -8,20 +9,7 @@ import type { RetellCall } from "./retell-webhook";
  * time_window, job_booked. Missing ones are left out.
  */
 
-const str = (v: unknown) => (typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "");
-
-/** Plain GSM characters, so a text isn't split into many short segments. */
-function gsm(s: string) {
-  return s
-    .replace(/[‘’‛]/g, "'")
-    .replace(/[“”‟]/g, '"')
-    .replace(/[–—−]/g, "-")
-    .replace(/…/g, "...")
-    .replace(/[   ]/g, " ")
-    .replace(/[^\x0A\x0D\x20-\x7E£¥èéùìòÇØøÅåÄÖÑÜ§¿äöñüà]/g, "")
-    .replace(/[ \t]+/g, " ")
-    .trim();
-}
+export const str = (v: unknown) => (typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "");
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 3).trimEnd()}...` : s);
 
@@ -33,7 +21,7 @@ export function prettyPhone(n: string) {
 }
 
 /** True for answers like "true", "yes", "booked". */
-function yes(v: unknown) {
+export function yes(v: unknown) {
   if (typeof v === "boolean") return v;
   return /^(true|yes|y|booked|confirmed)$/i.test(str(v));
 }
@@ -47,7 +35,7 @@ const URGENCY: Record<string, string> = {
 
 export type JobText = { body: string; hasInfo: boolean };
 
-export function buildJobText(call: RetellCall, businessName: string): JobText {
+export function buildJobText(call: RetellCall, businessName: string, detailsUrl?: string): JobText {
   const a = call.call_analysis?.custom_analysis_data ?? {};
   const name = gsm(str(a.customer_name));
   const callback = str(a.callback_number) || str(call.from_number);
@@ -72,6 +60,8 @@ export function buildJobText(call: RetellCall, businessName: string): JobText {
   if (when) lines.push(`When: ${clip(when, 50)}`);
   // No structured details: fall back to Retell's summary of the call.
   if (!issue && summary) lines.push(clip(summary, 220));
+
+  if (detailsUrl) lines.push(`Recording: ${detailsUrl}`);
 
   return { body: lines.join("\n"), hasInfo: hasInfo || Boolean(summary) };
 }
