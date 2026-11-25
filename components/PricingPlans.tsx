@@ -2,11 +2,21 @@
 
 import { useState } from "react";
 import {
+  TRIAL_DAYS,
   dispatcherPlans,
   trialHref,
   type DispatcherBilling,
   type DispatcherPlan,
 } from "@/lib/dispatcher/plans";
+import { findPlan, planHref } from "@/lib/plans";
+
+/**
+ * Paid plans go straight to Paddle checkout: sign-up first if needed (the
+ * payment has to belong to an account), then the Billing page opens the
+ * checkout overlay for that price. A signed-in visitor skips sign-up.
+ */
+const checkoutHref = (plan: DispatcherPlan, billing: DispatcherBilling) =>
+  planHref(findPlan(plan.id)!, billing);
 
 const d = (s: number) => ({ "--d": `${s}s` }) as React.CSSProperties;
 
@@ -87,10 +97,10 @@ function PlanCard({
   const paid = plan.price.monthly > 0;
 
   const note = !paid
-    ? "Then choose a plan, or walk away"
+    ? "Then subscribe, or walk away"
     : billing === "annual"
-      ? `Billed $${(price * 12).toLocaleString("en-US")} yearly, after your free trial`
-      : "Billed monthly, after your free trial";
+      ? `Billed $${(price * 12).toLocaleString("en-US")} yearly`
+      : "Billed monthly, cancel anytime";
 
   const button = `mt-auto block rounded-full px-6 py-3 text-center text-[15px] font-medium transition-colors ${
     plan.popular
@@ -147,9 +157,23 @@ function PlanCard({
           ))}
         </ul>
 
-        <a href={trialHref(plan.id)} className={button}>
-          {plan.cta}
-        </a>
+        {paid ? (
+          <>
+            <a href={checkoutHref(plan, billing)} className={button}>
+              Subscribe now
+            </a>
+            <a
+              href={trialHref(plan.id)}
+              className="mt-3 block text-center text-[14px] text-mist underline decoration-white/20 underline-offset-4 hover:text-fog"
+            >
+              or try it free for {TRIAL_DAYS} days first
+            </a>
+          </>
+        ) : (
+          <a href={trialHref(plan.id)} className={button}>
+            {plan.cta}
+          </a>
+        )}
       </div>
     </li>
   );

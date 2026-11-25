@@ -33,14 +33,17 @@ export function getPaddle() {
 }
 
 /**
- * Opens the Paddle checkout overlay for one price. The NovaAI user ID goes in
- * customData, so the webhook can find the account; the email pre-fills
- * checkout. `onComplete` runs when payment succeeds.
+ * Opens the Paddle checkout overlay for one price, so the customer can pay
+ * straight away (also during the free trial). The NovaAI user ID and, when
+ * the account has one, its business ID go in customData so the webhook maps
+ * the payment to the right account; the email pre-fills checkout.
+ * `onComplete` runs when payment succeeds.
  */
 export async function openCheckout(input: {
   priceId: string;
   userId: string;
   email: string;
+  businessId?: string | null;
   onComplete: () => void;
 }) {
   const paddle = await getPaddle();
@@ -53,7 +56,12 @@ export async function openCheckout(input: {
   paddle.Checkout.open({
     items: [{ priceId: input.priceId, quantity: 1 }],
     customer: { email: input.email },
-    customData: { userId: input.userId },
+    customData: {
+      user_id: input.userId,
+      // Older webhook deliveries read userId; keep both.
+      userId: input.userId,
+      ...(input.businessId ? { business_id: input.businessId } : {}),
+    },
     settings: { displayMode: "overlay", theme: "dark", allowLogout: false },
   });
 }

@@ -13,7 +13,8 @@ export default function Pricing() {
           </h2>
           <p className="mx-auto mt-5 max-w-[50ch] text-[17px] leading-relaxed text-mist">
             A single AC repair or water heater job covers a month of
-            Jessica. Try her on your real calls for 14 days first, free.
+            Jessica. Subscribe today, or try her free on your real calls for
+            14 days first.
           </p>
         </Reveal>
 

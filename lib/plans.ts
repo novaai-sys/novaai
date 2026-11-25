@@ -39,7 +39,7 @@ export const plans: Plan[] = [from("trial", "free"), from("starter", "starter"),
  * sign-up too, then continue to the Paddle checkout on the Billing page; a
  * visitor who is already signed in skips straight to checkout.
  */
-export function planHref(plan: Plan, billing: Billing) {
+export function planHref(plan: Pick<Plan, "id">, billing: Billing) {
   if (plan.id === "free") return "/signup?plan=free";
   const next = `/dashboard/billing?checkout=${plan.id}-${billing}`;
   return `/signup?plan=${plan.id}&billing=${billing}&next=${encodeURIComponent(next)}`;

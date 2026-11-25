@@ -93,7 +93,7 @@ export default function TrialForm() {
             <form onSubmit={submit} className="rounded-card border border-white/10 bg-panel/80 p-6 md:p-8" noValidate>
               {chosen && (
                 <p className="mb-5 rounded-2xl bg-ice/10 px-4 py-3 text-[14px] text-ice">
-                  You picked {chosen.name}. You start on the free trial either way.
+                  You&apos;re trying {chosen.name} free for {TRIAL_DAYS} days. You can subscribe at any time from your dashboard.
                 </p>
               )}
               <div className="grid gap-5 sm:grid-cols-2">
