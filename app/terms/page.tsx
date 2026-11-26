@@ -110,7 +110,8 @@ export default function TermsPage() {
               </li>
               <li>
                 The trial never turns into a paid plan on its own. You are only
-                charged if you choose one. If you don&apos;t, we stop
+                charged if you choose one, which you can do at any time, also
+                during the trial; your paid plan starts as soon as you pay. If you don&apos;t, we stop
                 answering calls on your NovaAI number at the end of the trial.
               </li>
             </List>
